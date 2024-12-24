@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 interface GameRoundProps {
-  imageUrl: string;         // This prop can be ignored if you prefer to read from store
+  imageUrl: string;
   options: string[];
   onSubmitGuess: (guess: string) => void;
 }
@@ -22,7 +22,6 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
     handleSubmit,
   } = useGameRound(imageUrl, onSubmitGuess);
 
-  // We rely on the store for the "real" image URL:
   const currentRoundImage = gameStore.getRoundImage(gameStore.currentRound);
 
   useEffect(() => {
@@ -31,14 +30,11 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
       imageUrl: currentRoundImage,
       hasOptions: options?.length > 0,
       storeImage: gameStore.currentImage,
+      currentOptions: options,
     });
-
-    if (!currentRoundImage) {
-      console.error("No image URL provided for round:", gameStore.currentRound);
-    }
   }, [currentRoundImage, options, gameStore.currentRound, gameStore.currentImage]);
 
-  // If we truly have no image, show a loader or fallback
+  // Show loading state while waiting for round data
   if (!currentRoundImage || !options?.length) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
@@ -46,11 +42,13 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
         <p className="text-lg font-medium">
           Loading round {gameStore.currentRound}...
         </p>
+        <p className="text-sm text-muted-foreground">
+          Please wait while we prepare the next round
+        </p>
       </div>
     );
   }
 
-  // Otherwise, display the actual image & options
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
       <GameProgress />
