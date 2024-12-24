@@ -54,7 +54,7 @@ export const useGameLogic = () => {
       const correctPrompt = unusedPrompts[randomIndex];
       const correctImage = unusedImages[randomIndex];
 
-      console.log('Generating false answers for prompt:', correctPrompt);
+      console.log('Starting round', round, 'with prompt:', correctPrompt);
 
       // Generate false answers using GPT-4
       const { data: response, error: gptError } = await supabase.functions
@@ -69,18 +69,14 @@ export const useGameLogic = () => {
         return "waiting";
       }
 
-      console.log('Received alternatives:', response.alternatives);
-
       // Combine correct answer with AI-generated false answers
       const options = [correctPrompt, ...response.alternatives];
       
       // Shuffle options
       const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
-      console.log('Final shuffled options:', shuffledOptions);
-
       // Update the room with the current image and options
-      await supabase
+      const { error: updateError } = await supabase
         .from('game_rooms')
         .update({
           current_image: correctImage,
@@ -89,6 +85,12 @@ export const useGameLogic = () => {
           current_round: round
         })
         .eq('id', roomData.id);
+
+      if (updateError) {
+        console.error('Error updating room:', updateError);
+        toast.error('Error starting new round');
+        return "waiting";
+      }
 
       console.log(`Starting round ${round} of ${gameStore.totalRounds}`);
       

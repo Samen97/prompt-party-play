@@ -112,7 +112,8 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
             current_round: nextRound,
             current_image: null,
             current_options: null,
-            correct_prompt: null
+            correct_prompt: null,
+            status: nextRound > gameStore.totalRounds ? 'completed' : 'playing'
           })
           .eq("id", roomData.id);
 
