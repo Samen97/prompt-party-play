@@ -16,7 +16,6 @@ export const PromptSubmission = ({
   const [prompts, setPrompts] = useState<string[]>([""]);
   const gameStore = useGameStore();
 
-  // If user is host, don't show the prompt submission form
   if (gameStore.isHost) {
     return (
       <div className="space-y-6 w-full max-w-md mx-auto p-6">
@@ -38,7 +37,6 @@ export const PromptSubmission = ({
 
   const handlePromptChange = (index: number, value: string) => {
     const newPrompts = [...prompts];
-    // Allow any text but still prefix with "A child's drawing of"
     newPrompts[index] = value.startsWith("A child's drawing of") 
       ? value 
       : `A child's drawing of ${value}`;
@@ -56,7 +54,6 @@ export const PromptSubmission = ({
       return;
     }
 
-    // Validate minimum length for each prompt
     if (prompts.some(prompt => prompt.replace("A child's drawing of", "").trim().length < 3)) {
       toast.error("Each prompt must be at least 3 characters long");
       return;
@@ -73,20 +70,25 @@ export const PromptSubmission = ({
           Create {requiredPrompts} unique prompts for AI image generation
         </p>
         <p className="text-center text-sm text-gray-500">
-          All prompts will start with "A child's drawing of"
+          All prompts will start with "A child's drawing of". Be creative and descriptive!
         </p>
       </div>
 
       <div className="space-y-4">
         {prompts.map((prompt, index) => (
-          <div key={index} className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500 w-6">{index + 1}.</span>
-            <Input
-              value={prompt.replace("A child's drawing of", "").trim()}
-              onChange={(e) => handlePromptChange(index, e.target.value)}
-              placeholder="Enter what to draw..."
-              className="flex-1"
-            />
+          <div key={index} className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500 w-6">{index + 1}.</span>
+              <Input
+                value={prompt.replace("A child's drawing of", "").trim()}
+                onChange={(e) => handlePromptChange(index, e.target.value)}
+                placeholder="Enter a detailed description..."
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-gray-500 ml-8">
+              Example: "a happy dinosaur playing with a red ball in a sunny park"
+            </p>
           </div>
         ))}
 

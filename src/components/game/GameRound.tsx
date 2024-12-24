@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useGameStore } from "@/store/gameStore";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GameRoundProps {
   imageUrl: string;
@@ -16,10 +18,41 @@ export const GameRound = ({
   timeLeft,
 }: GameRoundProps) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const gameStore = useGameStore();
 
-  const handleSubmit = () => {
-    if (selectedOption) {
-      onSubmitGuess(selectedOption);
+  useEffect(() => {
+    setSelectedOption(null);
+    setHasAnswered(false);
+  }, [imageUrl]);
+
+  const handleSubmit = async () => {
+    if (!selectedOption || hasAnswered) return;
+
+    setHasAnswered(true);
+    onSubmitGuess(selectedOption);
+
+    // Update the player's answer status in the database
+    const { data: roomData } = await supabase
+      .from('game_rooms')
+      .select()
+      .eq('code', gameStore.roomCode)
+      .single();
+
+    if (roomData) {
+      const { data: playerData } = await supabase
+        .from('game_players')
+        .select()
+        .eq('room_id', roomData.id)
+        .eq('username', gameStore.players[gameStore.players.length - 1].username)
+        .single();
+
+      if (playerData) {
+        await supabase
+          .from('game_players')
+          .update({ has_answered: true })
+          .eq('id', playerData.id);
+      }
     }
   };
 
@@ -49,7 +82,7 @@ export const GameRound = ({
                 ? "border-primary border-2"
                 : "hover:border-gray-400"
             }`}
-            onClick={() => setSelectedOption(option)}
+            onClick={() => !hasAnswered && setSelectedOption(option)}
           >
             <p className="text-lg">{option}</p>
           </Card>
@@ -58,10 +91,10 @@ export const GameRound = ({
 
       <Button
         onClick={handleSubmit}
-        disabled={!selectedOption}
+        disabled={!selectedOption || hasAnswered}
         className="w-full max-w-md mx-auto bg-primary hover:bg-primary/90"
       >
-        Submit Guess
+        {hasAnswered ? "Waiting for other players..." : "Submit Guess"}
       </Button>
     </div>
   );

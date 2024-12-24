@@ -16,7 +16,7 @@ serve(async (req) => {
   try {
     const { prompt } = await req.json();
 
-    // First, use GPT-4o to analyze and enhance the prompt
+    // First, enhance the prompt with GPT-4o
     const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -28,11 +28,11 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that enhances image generation prompts. Take the user\'s prompt and add descriptive details to make it more vivid and child-like, while keeping the core concept the same.'
+            content: 'You are an expert at creating prompts for generating children\'s drawings. Take the input and enhance it to create a more detailed prompt that will result in an image that looks like it was drawn by a 5-year-old child. Add details about using crayons, simple shapes, and bright colors.'
           },
           {
             role: 'user',
-            content: `Enhance this prompt for a child-like drawing: ${prompt}`
+            content: `Create a child-like drawing prompt for: ${prompt}`
           }
         ],
       }),
@@ -40,8 +40,9 @@ serve(async (req) => {
 
     const gptData = await gptResponse.json();
     const enhancedPrompt = gptData.choices[0].message.content;
+    console.log('Enhanced prompt:', enhancedPrompt);
 
-    // Now generate the image with the enhanced prompt
+    // Generate image with the enhanced prompt
     const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -50,7 +51,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: enhancedPrompt,
+        prompt: `${enhancedPrompt}. Make it look exactly like a child's crayon drawing, with simple shapes and bright colors.`,
         n: 1,
         size: "1024x1024",
         style: "natural"
@@ -64,23 +65,15 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        imageUrl: imageData.data[0].url,
-        enhancedPrompt: enhancedPrompt 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ imageUrl: imageData.data[0].url }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
