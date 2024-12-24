@@ -46,23 +46,30 @@ export const useGameLogic = () => {
       const correctImage = unusedImages[randomIndex];
       const correctPrompt = unusedPrompts[randomIndex];
 
+      console.log('Generating false answers for prompt:', correctPrompt);
+
       // Generate false answers using GPT-4
-      const { data: falseAnswers, error: gptError } = await supabase.functions
+      const { data: response, error: gptError } = await supabase.functions
         .invoke('generate-false-answers', {
           body: { correctPrompt }
         });
 
-      if (gptError) {
-        console.error('Error generating false answers:', gptError);
+      if (gptError || !response?.alternatives || !Array.isArray(response.alternatives)) {
+        console.error('Error generating false answers:', gptError || 'Invalid response format');
+        console.log('Response received:', response);
         toast.error('Error generating game options');
         return "waiting";
       }
 
+      console.log('Received alternatives:', response.alternatives);
+
       // Combine correct answer with AI-generated false answers
-      const options = [correctPrompt, ...falseAnswers.alternatives];
+      const options = [correctPrompt, ...response.alternatives];
       
       // Shuffle options
       const shuffledOptions = options.sort(() => Math.random() - 0.5);
+
+      console.log('Final shuffled options:', shuffledOptions);
 
       // Update the room with the current image and options
       await supabase
