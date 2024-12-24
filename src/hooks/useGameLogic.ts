@@ -27,13 +27,13 @@ export const useGameLogic = () => {
         throw new Error("Room not found");
       }
 
-      // Get the prompt for this specific round number
+      // Get the prompt specifically for this round number
       const { data: roundPrompt, error: promptError } = await supabase
         .from("game_prompts")
         .select("id, prompt, image_url")
         .eq("room_id", roomData.id)
-        .eq("round_number", round) // This matches prompts to specific rounds
-        .single();
+        .eq("round_number", round)
+        .maybeSingle();
 
       if (promptError || !roundPrompt) {
         console.error("[useGameLogic] Error fetching round prompt:", promptError);
