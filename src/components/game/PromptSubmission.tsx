@@ -38,7 +38,10 @@ export const PromptSubmission = ({
 
   const handlePromptChange = (index: number, value: string) => {
     const newPrompts = [...prompts];
-    newPrompts[index] = value.startsWith("A child's drawing of") ? value : `A child's drawing of ${value}`;
+    // Allow any text but still prefix with "A child's drawing of"
+    newPrompts[index] = value.startsWith("A child's drawing of") 
+      ? value 
+      : `A child's drawing of ${value}`;
     setPrompts(newPrompts);
   };
 
@@ -50,6 +53,12 @@ export const PromptSubmission = ({
 
     if (prompts.some((prompt) => !prompt.trim())) {
       toast.error("Please fill in all prompts");
+      return;
+    }
+
+    // Validate minimum length for each prompt
+    if (prompts.some(prompt => prompt.replace("A child's drawing of", "").trim().length < 3)) {
+      toast.error("Each prompt must be at least 3 characters long");
       return;
     }
 
