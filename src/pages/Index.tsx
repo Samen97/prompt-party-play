@@ -23,11 +23,13 @@ const Index = () => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     gameStore.setRoomCode(roomCode);
     gameStore.setHost(username);
-    setGameState("lobby"); // Host stays in lobby to manage game
+    gameStore.addPlayer(username);
+    setGameState("lobby");
     toast.success(`Room created! Share this code with players: ${roomCode}`);
   };
 
   const handleJoinRoom = (username: string, roomCode: string) => {
+    // Add the player to the game store
     gameStore.setRoomCode(roomCode);
     gameStore.addPlayer(username);
     setGameState("prompt-submission");
@@ -37,6 +39,7 @@ const Index = () => {
   const handleSubmitPrompts = async (prompts: string[]) => {
     toast.info("Generating images... This may take a minute.");
     try {
+      // Use the host's API key for all image generation
       const images = await Promise.all(
         prompts.map((prompt) => generateImage(prompt, apiKey))
       );
@@ -45,10 +48,6 @@ const Index = () => {
       gameStore.updatePlayerPrompts(playerId, prompts, images);
       
       setGameState("playing");
-      if (gameStore.isHost) {
-        startNewRound();
-      }
-      
       toast.success("Images generated successfully!");
     } catch (error) {
       toast.error("Error generating images. Please try again.");
@@ -78,7 +77,6 @@ const Index = () => {
     }
 
     const shuffledOptions = options.sort(() => Math.random() - 0.5);
-
     gameStore.setCurrentRound(round + 1, correctImage, shuffledOptions, correctPrompt);
   }, [gameStore]);
 
@@ -99,10 +97,14 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50">
       <div className="container mx-auto py-8">
+        {/* Always show room code if it exists */}
         {gameStore.roomCode && (
-          <div className="mb-8 p-4 bg-white rounded-lg shadow-lg text-center">
+          <div className="mb-8 p-6 bg-white rounded-lg shadow-lg text-center">
             <h2 className="text-xl font-bold mb-2">Room Code</h2>
-            <p className="text-3xl font-mono bg-gray-100 p-4 rounded">{gameStore.roomCode}</p>
+            <p className="text-4xl font-mono bg-gray-100 p-4 rounded select-all cursor-pointer">
+              {gameStore.roomCode}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">Click to copy</p>
           </div>
         )}
 
@@ -113,14 +115,14 @@ const Index = () => {
         {gameState === "lobby" && (
           <>
             {gameStore.isHost ? (
-              <div className="space-y-6 w-full max-w-md mx-auto p-6">
+              <div className="space-y-6 w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow">
                 <h2 className="text-2xl font-bold text-center">Waiting for Players</h2>
                 <p className="text-center text-gray-600">Share the room code above with players to join</p>
                 <div className="space-y-4">
                   <h3 className="font-semibold">Connected Players:</h3>
                   {gameStore.players.map((player) => (
-                    <div key={player.id} className="p-2 bg-white rounded">
-                      {player.username}
+                    <div key={player.id} className="p-3 bg-gray-50 rounded-lg">
+                      {player.username} {player.id === gameStore.hostUsername && "(Host)"}
                     </div>
                   ))}
                 </div>
@@ -163,7 +165,7 @@ const Index = () => {
         )}
 
         {gameState === "results" && (
-          <div className="space-y-6 w-full max-w-md mx-auto p-6">
+          <div className="space-y-6 w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow">
             <h2 className="text-2xl font-bold text-center">Game Over!</h2>
             <div className="space-y-4">
               {gameStore.players
@@ -171,7 +173,7 @@ const Index = () => {
                 .map((player, index) => (
                   <div
                     key={player.id}
-                    className="flex justify-between items-center p-4 bg-white rounded-lg shadow"
+                    className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
                   >
                     <span className="font-semibold">
                       {index + 1}. {player.username}
