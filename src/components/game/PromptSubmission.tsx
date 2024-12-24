@@ -10,7 +10,7 @@ interface PromptSubmissionProps {
 
 export const PromptSubmission = ({
   onSubmitPrompts,
-  requiredPrompts = 10,
+  requiredPrompts = 5,
 }: PromptSubmissionProps) => {
   const [prompts, setPrompts] = useState<string[]>([""]);
 
