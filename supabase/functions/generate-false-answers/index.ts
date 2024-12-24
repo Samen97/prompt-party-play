@@ -19,17 +19,30 @@ serve(async (req) => {
       apiKey: Deno.env.get('OPENAI_API_KEY'),
     })
 
-    const prompt = `Given this image prompt: "${correctPrompt}", generate 3 alternative prompts that are similar but different in an interesting way. For example, if the prompt is "a cow in space", you might suggest "a zebra in a spacesuit", "an elephant floating through the cosmos", and "a giraffe on the moon". Make them creative and fun, but related to the original concept. Return only the array of 3 alternatives, nothing else.`
+    const prompt = `Given this image prompt: "${correctPrompt}", generate 3 alternative prompts 
+that are similar but different in an interesting way. For example, if the prompt is "a cow in space", 
+you might suggest "a zebra in a spacesuit", "an elephant floating through the cosmos", and "a giraffe on the moon". 
+Make them creative and fun, but related to the original concept. Return only the array of 3 alternatives, nothing else.`
 
     const completion = await openai.chat.completions.create({
+      // Keep your specialized model
       model: "gpt-4o-mini",
       messages: [
-        { "role": "system", "content": "You are a creative assistant that generates alternative prompts for an image generation game. Your responses should be just the array of 3 alternatives, no explanation or other text." },
+        { 
+          role: "system",
+          content: "You are a creative assistant that generates alternative prompts for an image generation game. Your responses should be just the array of 3 alternatives, no explanation or other text."
+        },
         { "role": "user", "content": prompt }
       ],
     })
 
-    const alternatives = completion.choices[0].message.content?.split('\n').map(alt => alt.replace(/^\d+\.\s*/, '').trim()) || []
+    // The text the model returns
+    const textResponse = completion.choices[0]?.message?.content || ""
+    // Attempt a simple line-split approach to parse out 3 lines
+    const alternatives = textResponse
+      .split('\n')
+      .map(alt => alt.replace(/^\d+\.\s*/, '').trim())
+      .filter(Boolean)
 
     console.log('Generated alternatives:', alternatives)
 
