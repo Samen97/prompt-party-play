@@ -50,14 +50,28 @@ export const RoomCreation = ({ onCreateRoom, onJoinRoom }: RoomCreationProps) =>
     ];
     
     try {
+      toast.info("Starting image generation test...");
+      console.log('Testing image generation with prompts:', testPrompts);
+      
       const images = await Promise.all(
-        testPrompts.map(prompt => generateImage(prompt))
+        testPrompts.map(async (prompt, index) => {
+          console.log(`Generating image ${index + 1}/${testPrompts.length}`);
+          try {
+            const imageUrl = await generateImage(prompt);
+            console.log(`Successfully generated image ${index + 1}:`, imageUrl);
+            return imageUrl;
+          } catch (error) {
+            console.error(`Failed to generate image ${index + 1}:`, error);
+            throw error;
+          }
+        })
       );
+
       setTestImages(images);
       toast.success("Test images generated successfully!");
     } catch (error) {
       console.error('Test image generation error:', error);
-      toast.error("Failed to generate test images. Please try again.");
+      toast.error(`Failed to generate test images: ${error.message}`);
     } finally {
       setIsGenerating(false);
     }

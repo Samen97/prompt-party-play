@@ -15,8 +15,13 @@ serve(async (req) => {
 
   try {
     const { prompt } = await req.json();
+    console.log('Received prompt:', prompt);
 
-    // First, enhance the prompt with GPT-4o
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
+    // First, enhance the prompt with GPT-4
     const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -38,6 +43,12 @@ serve(async (req) => {
       }),
     });
 
+    if (!gptResponse.ok) {
+      const error = await gptResponse.json();
+      console.error('GPT API error:', error);
+      throw new Error(`GPT API error: ${error.error?.message || 'Unknown error'}`);
+    }
+
     const gptData = await gptResponse.json();
     const enhancedPrompt = gptData.choices[0].message.content;
     console.log('Enhanced prompt:', enhancedPrompt);
@@ -58,7 +69,14 @@ serve(async (req) => {
       }),
     });
 
+    if (!imageResponse.ok) {
+      const error = await imageResponse.json();
+      console.error('DALL-E API error:', error);
+      throw new Error(`DALL-E API error: ${error.error?.message || 'Unknown error'}`);
+    }
+
     const imageData = await imageResponse.json();
+    console.log('Image generation response:', imageData);
     
     if (!imageData.data?.[0]?.url) {
       throw new Error('No image URL returned from the API');
@@ -72,8 +90,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });
