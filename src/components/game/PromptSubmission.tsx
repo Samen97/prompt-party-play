@@ -10,7 +10,7 @@ interface PromptSubmissionProps {
 
 export const PromptSubmission = ({
   onSubmitPrompts,
-  requiredPrompts = 5,
+  requiredPrompts = 2,
 }: PromptSubmissionProps) => {
   const [prompts, setPrompts] = useState<string[]>([""]);
 
@@ -22,7 +22,7 @@ export const PromptSubmission = ({
 
   const handlePromptChange = (index: number, value: string) => {
     const newPrompts = [...prompts];
-    newPrompts[index] = value;
+    newPrompts[index] = value.startsWith("A child's drawing of") ? value : `A child's drawing of ${value}`;
     setPrompts(newPrompts);
   };
 
@@ -47,6 +47,9 @@ export const PromptSubmission = ({
         <p className="text-center text-gray-600">
           Create {requiredPrompts} unique prompts for AI image generation
         </p>
+        <p className="text-center text-sm text-gray-500">
+          All prompts will start with "A child's drawing of"
+        </p>
       </div>
 
       <div className="space-y-4">
@@ -54,9 +57,9 @@ export const PromptSubmission = ({
           <div key={index} className="flex items-center space-x-2">
             <span className="text-sm text-gray-500 w-6">{index + 1}.</span>
             <Input
-              value={prompt}
+              value={prompt.replace("A child's drawing of", "").trim()}
               onChange={(e) => handlePromptChange(index, e.target.value)}
-              placeholder="Enter a creative prompt..."
+              placeholder="Enter what to draw..."
               className="flex-1"
             />
           </div>

@@ -39,8 +39,8 @@ export const RoomCreation = ({ onCreateRoom, onJoinRoom }: RoomCreationProps) =>
   const handleTestGeneration = async () => {
     setIsGenerating(true);
     const testPrompts = [
-      "a child's drawing of a friendly dragon having a tea party",
-      "a child's drawing of a spaceship landing in a garden full of flowers"
+      "A child's drawing of a friendly dragon having a tea party",
+      "A child's drawing of a spaceship landing in a garden full of flowers"
     ];
     
     try {
