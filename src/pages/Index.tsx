@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { RoomCreation } from "@/components/game/RoomCreation";
 import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
@@ -6,6 +6,7 @@ import { generateImage } from "@/services/openai";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 type GameState = "lobby" | "prompt-submission" | "waiting" | "playing" | "results";
 
@@ -13,8 +14,109 @@ const Index = () => {
   const [gameState, setGameState] = useState<GameState>("lobby");
   const gameStore = useGameStore();
 
-  const handleCreateRoom = (username: string) => {
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!gameStore.roomCode) return;
+
+    // Subscribe to game room updates
+    const roomChannel = supabase
+      .channel('room-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_rooms',
+          filter: `code=eq.${gameStore.roomCode}`,
+        },
+        (payload) => {
+          console.log('Room update:', payload);
+          if (payload.new.status === 'playing' && gameState === 'waiting') {
+            setGameState('playing');
+            startNewRound();
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to player updates
+    const playerChannel = supabase
+      .channel('player-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_players',
+          filter: `room_id=eq.${gameStore.roomCode}`,
+        },
+        (payload) => {
+          console.log('Player update:', payload);
+          // Update player scores in real-time
+          if (payload.eventType === 'UPDATE') {
+            const updatedPlayer = payload.new;
+            gameStore.updateScore(updatedPlayer.id, updatedPlayer.score);
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to prompt updates
+    const promptChannel = supabase
+      .channel('prompt-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_prompts',
+          filter: `room_id=eq.${gameStore.roomCode}`,
+        },
+        (payload) => {
+          console.log('Prompt update:', payload);
+          if (payload.eventType === 'INSERT') {
+            // Handle new prompts being added
+            toast.info('New prompts have been submitted!');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(roomChannel);
+      supabase.removeChannel(playerChannel);
+      supabase.removeChannel(promptChannel);
+    };
+  }, [gameStore.roomCode, gameState]);
+
+  const handleCreateRoom = async (username: string) => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Create room in database
+    const { data: roomData, error: roomError } = await supabase
+      .from('game_rooms')
+      .insert([{ code: roomCode, host_id: username }])
+      .select()
+      .single();
+
+    if (roomError) {
+      toast.error('Failed to create room');
+      return;
+    }
+
+    // Create player in database
+    const { error: playerError } = await supabase
+      .from('game_players')
+      .insert([{ 
+        room_id: roomData.id, 
+        username: username,
+      }]);
+
+    if (playerError) {
+      toast.error('Failed to join room');
+      return;
+    }
+
     gameStore.setRoomCode(roomCode);
     gameStore.setHost(username);
     gameStore.addPlayer(username);
@@ -22,7 +124,32 @@ const Index = () => {
     toast.success(`Room created! Share this code with players: ${roomCode}`);
   };
 
-  const handleJoinRoom = (username: string, roomCode: string) => {
+  const handleJoinRoom = async (username: string, roomCode: string) => {
+    // Find room in database
+    const { data: roomData, error: roomError } = await supabase
+      .from('game_rooms')
+      .select()
+      .eq('code', roomCode)
+      .single();
+
+    if (roomError || !roomData) {
+      toast.error('Room not found');
+      return;
+    }
+
+    // Create player in database
+    const { error: playerError } = await supabase
+      .from('game_players')
+      .insert([{ 
+        room_id: roomData.id, 
+        username: username,
+      }]);
+
+    if (playerError) {
+      toast.error('Failed to join room');
+      return;
+    }
+
     gameStore.setRoomCode(roomCode);
     gameStore.addPlayer(username);
     setGameState("prompt-submission");
@@ -36,6 +163,38 @@ const Index = () => {
         prompts.map((prompt) => generateImage(prompt))
       );
       
+      // Get room ID from database
+      const { data: roomData } = await supabase
+        .from('game_rooms')
+        .select()
+        .eq('code', gameStore.roomCode)
+        .single();
+
+      // Get player ID from database
+      const { data: playerData } = await supabase
+        .from('game_players')
+        .select()
+        .eq('room_id', roomData.id)
+        .eq('username', gameStore.players[gameStore.players.length - 1].username)
+        .single();
+
+      // Insert prompts and images into database
+      const { error: promptError } = await supabase
+        .from('game_prompts')
+        .insert(
+          prompts.map((prompt, index) => ({
+            room_id: roomData.id,
+            player_id: playerData.id,
+            prompt: prompt,
+            image_url: images[index],
+          }))
+        );
+
+      if (promptError) {
+        toast.error('Failed to save prompts');
+        return;
+      }
+
       const playerId = gameStore.players[gameStore.players.length - 1].id;
       gameStore.updatePlayerPrompts(playerId, prompts, images);
       
@@ -51,7 +210,24 @@ const Index = () => {
     }
   };
 
-  const startGame = () => {
+  const startGame = async () => {
+    // Update room status in database
+    const { data: roomData } = await supabase
+      .from('game_rooms')
+      .select()
+      .eq('code', gameStore.roomCode)
+      .single();
+
+    const { error: updateError } = await supabase
+      .from('game_rooms')
+      .update({ status: 'playing' })
+      .eq('id', roomData.id);
+
+    if (updateError) {
+      toast.error('Failed to start game');
+      return;
+    }
+
     setGameState("playing");
     startNewRound();
   };

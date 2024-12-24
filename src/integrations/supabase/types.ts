@@ -9,7 +9,107 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      game_players: {
+        Row: {
+          created_at: string | null
+          id: string
+          room_id: string | null
+          score: number | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          room_id?: string | null
+          score?: number | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          room_id?: string | null
+          score?: number | null
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_players_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "game_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_prompts: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string | null
+          player_id: string | null
+          prompt: string
+          room_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          player_id?: string | null
+          prompt: string
+          room_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          player_id?: string | null
+          prompt?: string
+          room_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_prompts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "game_players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_prompts_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "game_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_rooms: {
+        Row: {
+          code: string
+          created_at: string | null
+          current_round: number | null
+          host_id: string
+          id: string
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          current_round?: number | null
+          host_id: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          current_round?: number | null
+          host_id?: string
+          id?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
