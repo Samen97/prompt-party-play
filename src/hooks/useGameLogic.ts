@@ -121,6 +121,9 @@ export const useGameLogic = () => {
       gameStore.addUsedPrompt(correctPrompt);
       gameStore.addUsedImage(correctImage);
       
+      // Store the round image
+      gameStore.setRoundImage(round, correctImage);
+      
       // Update game store state
       gameStore.setCurrentRound(round, correctImage, shuffledOptions, correctPrompt);
       

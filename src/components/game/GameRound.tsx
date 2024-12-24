@@ -24,17 +24,19 @@ export const GameRound = ({
     handleSubmit,
   } = useGameRound(imageUrl, onSubmitGuess);
 
+  const currentRoundImage = gameStore.getRoundImage(gameStore.currentRound);
+
   useEffect(() => {
     console.log('GameRound rendered with:', {
       round: gameStore.currentRound,
-      imageUrl,
+      imageUrl: currentRoundImage,
       hasOptions: options?.length > 0
     });
 
-    if (!imageUrl) {
+    if (!currentRoundImage) {
       console.error('No image URL provided for round:', gameStore.currentRound);
     }
-  }, [imageUrl, options, gameStore.currentRound]);
+  }, [currentRoundImage, options, gameStore.currentRound]);
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
@@ -46,13 +48,13 @@ export const GameRound = ({
       </div>
 
       <div className="aspect-square w-full max-w-2xl mx-auto">
-        {imageUrl ? (
+        {currentRoundImage ? (
           <img
-            src={imageUrl}
+            src={currentRoundImage}
             alt="AI Generated Image"
             className="w-full h-full object-cover rounded-lg shadow-lg"
             onError={(e) => {
-              console.error('Image failed to load:', imageUrl);
+              console.error('Image failed to load:', currentRoundImage);
               e.currentTarget.src = '/placeholder.svg';
             }}
           />

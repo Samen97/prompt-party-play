@@ -20,6 +20,7 @@ interface GameState {
   isHost: boolean;
   usedPrompts: string[];
   usedImages: string[];
+  roundImages: Record<number, string>;
   addPlayer: (username: string) => void;
   setRoomCode: (code: string) => void;
   setHost: (username: string) => void;
@@ -30,11 +31,13 @@ interface GameState {
   addPrompt: (prompt: string, imageUrl: string) => void;
   addUsedPrompt: (prompt: string) => void;
   addUsedImage: (image: string) => void;
+  setRoundImage: (round: number, imageUrl: string) => void;
+  getRoundImage: (round: number) => string | undefined;
   resetUsedItems: () => void;
   reset: () => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
+export const useGameStore = create<GameState>((set, get) => ({
   players: [],
   currentRound: 1,
   totalRounds: 0,
@@ -46,6 +49,7 @@ export const useGameStore = create<GameState>((set) => ({
   isHost: false,
   usedPrompts: [],
   usedImages: [],
+  roundImages: {},
 
   addPlayer: (username) =>
     set((state) => {
@@ -85,12 +89,16 @@ export const useGameStore = create<GameState>((set) => ({
     })),
 
   setCurrentRound: (round, image, options, correctPrompt) =>
-    set({
+    set((state) => ({
       currentRound: round,
       currentImage: image,
       options,
       correctPrompt,
-    }),
+      roundImages: {
+        ...state.roundImages,
+        [round]: image
+      }
+    })),
 
   setTotalRounds: (rounds) => set({ totalRounds: rounds }),
 
@@ -122,6 +130,16 @@ export const useGameStore = create<GameState>((set) => ({
       usedImages: [...state.usedImages, image],
     })),
 
+  setRoundImage: (round, imageUrl) =>
+    set((state) => ({
+      roundImages: {
+        ...state.roundImages,
+        [round]: imageUrl
+      }
+    })),
+
+  getRoundImage: (round) => get().roundImages[round],
+
   resetUsedItems: () =>
     set({
       usedPrompts: [],
@@ -141,5 +159,6 @@ export const useGameStore = create<GameState>((set) => ({
       isHost: false,
       usedPrompts: [],
       usedImages: [],
+      roundImages: {},
     }),
 }));
