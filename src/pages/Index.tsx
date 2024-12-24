@@ -2,14 +2,16 @@ import { useState } from "react";
 import { RoomCreation } from "@/components/game/RoomCreation";
 import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
+import { ApiKeyInput } from "@/components/game/ApiKeyInput";
 import { toast } from "sonner";
 
-type GameState = "lobby" | "prompt-submission" | "playing" | "results";
+type GameState = "api-key" | "lobby" | "prompt-submission" | "playing" | "results";
 
 const Index = () => {
-  const [gameState, setGameState] = useState<GameState>("lobby");
+  const [gameState, setGameState] = useState<GameState>("api-key");
   const [username, setUsername] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const [apiKey, setApiKey] = useState("");
 
   // Temporary mock data for demonstration
   const mockImage = "https://picsum.photos/800/800";
@@ -19,6 +21,12 @@ const Index = () => {
     "A magical forest with glowing mushrooms",
     "An underwater palace made of coral",
   ];
+
+  const handleApiKeySet = (key: string) => {
+    setApiKey(key);
+    setGameState("lobby");
+    toast.success("API key set successfully!");
+  };
 
   const handleCreateRoom = (username: string) => {
     setUsername(username);
@@ -48,6 +56,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50">
       <div className="container mx-auto py-8">
+        {gameState === "api-key" && (
+          <ApiKeyInput onApiKeySet={handleApiKeySet} />
+        )}
+
         {gameState === "lobby" && (
           <RoomCreation
             onCreateRoom={handleCreateRoom}
