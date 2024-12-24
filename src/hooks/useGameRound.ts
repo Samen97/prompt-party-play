@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
-import { useGameLogic } from "@/hooks/useGameLogic"; // <-- important import
+import { useGameLogic } from "@/hooks/useGameLogic"; // important import
 
 /**
- * Called by the <GameRound> component to handle a user's guess and
- * auto-advance to the next round once everyone has answered.
- * 
- * If the current user is the host, and all non-host players answered,
- * it automatically calls startNewRound() from your existing useGameLogic.ts.
+ * Called by <GameRound> to handle a user's guess and
+ * automatically advance the game once everyone has answered.
+ *
+ * If all non-host players have answered, and the current user is the HOST,
+ * we call `startNewRound()` from your existing useGameLogic.ts.
  */
 export const useGameRound = (
   imageUrl: string,
@@ -21,17 +21,14 @@ export const useGameRound = (
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Access the global game store to get current user, host, etc.
   const gameStore = useGameStore();
-
-  // Import the "startNewRound" function from your existing useGameLogic
   const { startNewRound } = useGameLogic();
 
   // Identify the "current player" as the last one in store.players
   const currentUsername =
     gameStore.players[gameStore.players.length - 1]?.username;
 
-  // Reset selection state whenever the round or image changes
+  // Whenever the round/image changes, reset selection
   useEffect(() => {
     setSelectedOption(null);
     setHasAnswered(false);
@@ -39,7 +36,10 @@ export const useGameRound = (
   }, [imageUrl, gameStore.currentRound]);
 
   /**
-   * Called when the user clicks "Submit Answer"
+   * Called when user clicks "Submit Answer".
+   * 1) Marks this player as "has_answered" in Supabase
+   * 2) Checks if all non-host players have answered.
+   *    - If yes, and user is HOST, calls startNewRound().
    */
   const handleSubmit = async () => {
     if (!selectedOption || hasAnswered || isProcessing || !currentUsername) {
@@ -47,10 +47,8 @@ export const useGameRound = (
     }
 
     setIsProcessing(true);
-    console.log("Submitting answer for user:", currentUsername);
-
     try {
-      // 1) Fetch the game_room row by code
+      // 1) Get the room row
       const { data: roomData, error: roomError } = await supabase
         .from("game_rooms")
         .select("*")
@@ -64,7 +62,7 @@ export const useGameRound = (
         return;
       }
 
-      // 2) Fetch this player's record from game_players
+      // 2) Get the player's row from game_players
       const { data: playerData, error: playerError } = await supabase
         .from("game_players")
         .select("*")
@@ -92,8 +90,8 @@ export const useGameRound = (
         return;
       }
 
-      // 4) Locally indicate we have submitted an answer
-      onSubmitGuess(selectedOption); // your existing guess handler
+      // 4) Locally record that we have answered, call parent guess handler
+      onSubmitGuess(selectedOption);
       setHasAnswered(true);
 
       // 5) Check if all non-host players have answered
@@ -103,7 +101,7 @@ export const useGameRound = (
         .eq("room_id", roomData.id);
 
       if (playersError) {
-        console.error("Error checking players:", playersError);
+        console.error("Error checking all players:", playersError);
         setIsProcessing(false);
         return;
       }
@@ -113,17 +111,20 @@ export const useGameRound = (
       );
       const allAnswered = nonHostPlayers.every((p) => p.has_answered);
 
-      console.log("All players answered? ", allAnswered);
+      console.log(
+        "[useGameRound] All players answered? ",
+        allAnswered,
+        "| Host? ",
+        gameStore.isHost
+      );
 
+      // If everyone answered, we move to next round
       if (allAnswered) {
-        console.log("All players have answered - preparing next round...");
-
-        // (a) Reset all players' 'has_answered' so they can answer again
+        // (a) Reset has_answered for next round
         const { error: resetError } = await supabase
           .from("game_players")
           .update({ has_answered: false })
           .eq("room_id", roomData.id);
-
         if (resetError) {
           console.error("Error resetting player answers:", resetError);
           toast.error("Error preparing next round");
@@ -131,8 +132,8 @@ export const useGameRound = (
           return;
         }
 
-        // (b) Bump the round # in DB, or set status='completed'
-        const nextRound = roomData.current_round + 1;
+        // (b) Bump round # or mark 'completed'
+        const nextRound = (roomData.current_round || 1) + 1;
         const newStatus =
           nextRound > gameStore.totalRounds ? "completed" : "playing";
 
@@ -145,24 +146,25 @@ export const useGameRound = (
           .eq("id", roomData.id);
 
         if (roomUpdateError) {
-          console.error("Error updating room round:", roomUpdateError);
+          console.error("Error updating next round:", roomUpdateError);
           toast.error("Error moving to next round");
           setIsProcessing(false);
           return;
         }
 
-        // (c) If we have more rounds to play, the HOST triggers "startNewRound"
+        // (c) If not completed, have the HOST auto-start the next round
         if (newStatus === "playing" && gameStore.isHost) {
-          console.log("HOST auto-calls startNewRound for round:", nextRound);
-          const result = await startNewRound(); 
-          // result will be "playing" or "results"
+          console.log("[useGameRound] Host auto-calls startNewRound");
+          const result = await startNewRound();
           if (result === "results") {
             toast.success("Game completed!");
           }
+        } else if (newStatus === "completed") {
+          toast.success("All rounds finished!"); // triggers final
         }
       }
-    } catch (err) {
-      console.error("Error in handleSubmit:", err);
+    } catch (error) {
+      console.error("Error in handleSubmit guess:", error);
       toast.error("Error processing answer");
     } finally {
       setIsProcessing(false);
