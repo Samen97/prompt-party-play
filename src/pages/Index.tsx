@@ -1,19 +1,21 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { RoomCreation } from "@/components/game/RoomCreation";
 import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
 import { GameResults } from "@/components/game/GameResults";
+import { GameControls } from "@/components/game/GameControls";
 import { generateImage } from "@/services/openai";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useGameSubscription } from "@/hooks/useGameSubscription";
+import { useGameLogic } from "@/hooks/useGameLogic";
 import { GameState } from "@/types/game";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("lobby");
   const gameStore = useGameStore();
+  const { startNewRound } = useGameLogic();
 
   // Subscribe to real-time updates
   useGameSubscription(gameStore.roomCode, gameState, setGameState, startNewRound);
@@ -21,7 +23,6 @@ const Index = () => {
   const handleCreateRoom = async (username: string) => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // Create room in database
     const { data: roomData, error: roomError } = await supabase
       .from('game_rooms')
       .insert([{ code: roomCode, host_id: username }])
@@ -33,7 +34,6 @@ const Index = () => {
       return;
     }
 
-    // Create player in database
     const { error: playerError } = await supabase
       .from('game_players')
       .insert([{ 
@@ -54,7 +54,6 @@ const Index = () => {
   };
 
   const handleJoinRoom = async (username: string, roomCode: string) => {
-    // Find room in database
     const { data: roomData, error: roomError } = await supabase
       .from('game_rooms')
       .select()
@@ -66,7 +65,6 @@ const Index = () => {
       return;
     }
 
-    // Create player in database
     const { error: playerError } = await supabase
       .from('game_players')
       .insert([{ 
@@ -92,14 +90,12 @@ const Index = () => {
         prompts.map((prompt) => generateImage(prompt))
       );
       
-      // Get room ID from database
       const { data: roomData } = await supabase
         .from('game_rooms')
         .select()
         .eq('code', gameStore.roomCode)
         .single();
 
-      // Get player ID from database
       const { data: playerData } = await supabase
         .from('game_players')
         .select()
@@ -107,7 +103,6 @@ const Index = () => {
         .eq('username', gameStore.players[gameStore.players.length - 1].username)
         .single();
 
-      // Insert prompts and images into database
       const { error: promptError } = await supabase
         .from('game_prompts')
         .insert(
@@ -139,54 +134,6 @@ const Index = () => {
     }
   };
 
-  const startGame = async () => {
-    // Update room status in database
-    const { data: roomData } = await supabase
-      .from('game_rooms')
-      .select()
-      .eq('code', gameStore.roomCode)
-      .single();
-
-    const { error: updateError } = await supabase
-      .from('game_rooms')
-      .update({ status: 'playing' })
-      .eq('id', roomData.id);
-
-    if (updateError) {
-      toast.error('Failed to start game');
-      return;
-    }
-
-    setGameState("playing");
-    startNewRound();
-  };
-
-  const startNewRound = useCallback(() => {
-    const round = gameStore.currentRound;
-    if (round >= gameStore.totalRounds) {
-      setGameState("results");
-      return;
-    }
-
-    const allPrompts = gameStore.players.flatMap((p) => p.prompts);
-    const allImages = gameStore.players.flatMap((p) => p.images);
-    
-    const randomIndex = Math.floor(Math.random() * allImages.length);
-    const correctImage = allImages[randomIndex];
-    const correctPrompt = allPrompts[randomIndex];
-
-    const options = [correctPrompt];
-    while (options.length < 4) {
-      const randomPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
-      if (!options.includes(randomPrompt)) {
-        options.push(randomPrompt);
-      }
-    }
-
-    const shuffledOptions = options.sort(() => Math.random() - 0.5);
-    gameStore.setCurrentRound(round + 1, correctImage, shuffledOptions, correctPrompt);
-  }, [gameStore]);
-
   const handleSubmitGuess = (guess: string) => {
     const playerId = gameStore.players[gameStore.players.length - 1].id;
     if (guess === gameStore.correctPrompt) {
@@ -197,7 +144,12 @@ const Index = () => {
     }
 
     if (gameStore.isHost) {
-      setTimeout(startNewRound, 2000);
+      setTimeout(() => {
+        const newState = startNewRound();
+        if (newState !== gameState) {
+          setGameState(newState);
+        }
+      }, 2000);
     }
   };
 
@@ -234,13 +186,11 @@ const Index = () => {
               </p>
             </div>
             <PromptSubmission onSubmitPrompts={handleSubmitPrompts} />
-            {gameStore.isHost && gameStore.players.length > 1 && (
-              <div className="mt-6 text-center">
-                <Button onClick={startGame} className="bg-green-500 hover:bg-green-600">
-                  Start Game
-                </Button>
-              </div>
-            )}
+            <GameControls 
+              gameState={gameState}
+              setGameState={setGameState}
+              startNewRound={startNewRound}
+            />
           </>
         )}
 

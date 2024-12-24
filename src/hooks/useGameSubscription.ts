@@ -2,20 +2,19 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useGameStore } from '@/store/gameStore';
 import { toast } from 'sonner';
-import { GameRoom } from '@/types/game';
+import { GameRoom, GameState } from '@/types/game';
 
 export const useGameSubscription = (
   roomCode: string | null,
-  gameState: string,
-  setGameState: (state: string) => void,
-  startNewRound: () => void
+  gameState: GameState,
+  setGameState: (state: GameState) => void,
+  startNewRound: () => GameState
 ) => {
   const gameStore = useGameStore();
 
   useEffect(() => {
     if (!roomCode) return;
 
-    // Subscribe to game room updates
     const roomChannel = supabase
       .channel('room-updates')
       .on(
@@ -31,13 +30,15 @@ export const useGameSubscription = (
           const newRoom = payload.new as GameRoom;
           if (newRoom?.status === 'playing' && gameState === 'waiting') {
             setGameState('playing');
-            startNewRound();
+            const newState = startNewRound();
+            if (newState !== gameState) {
+              setGameState(newState);
+            }
           }
         }
       )
       .subscribe();
 
-    // Subscribe to player updates
     const playerChannel = supabase
       .channel('player-updates')
       .on(
@@ -58,7 +59,6 @@ export const useGameSubscription = (
       )
       .subscribe();
 
-    // Subscribe to prompt updates
     const promptChannel = supabase
       .channel('prompt-updates')
       .on(
