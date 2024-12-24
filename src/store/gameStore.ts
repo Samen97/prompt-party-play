@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { GamePrompt } from '@/types/game';
 
 interface Player {
   id: string;
@@ -21,6 +22,7 @@ interface GameState {
   usedPrompts: string[];
   usedImages: string[];
   roundImages: Record<number, string>;
+  prompts: GamePrompt[];
   addPlayer: (username: string) => void;
   setRoomCode: (code: string) => void;
   setHost: (username: string) => void;
@@ -34,6 +36,7 @@ interface GameState {
   setRoundImage: (round: number, imageUrl: string) => void;
   getRoundImage: (round: number) => string | undefined;
   resetUsedItems: () => void;
+  setPrompts: (prompts: GamePrompt[]) => void;
   reset: () => void;
 }
 
@@ -50,6 +53,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   usedPrompts: [],
   usedImages: [],
   roundImages: {},
+  prompts: [],
 
   addPlayer: (username) =>
     set((state) => {
@@ -146,6 +150,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       usedImages: [],
     }),
 
+  setPrompts: (prompts) => set({ prompts }),
+
   reset: () =>
     set({
       players: [],
@@ -160,5 +166,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       usedPrompts: [],
       usedImages: [],
       roundImages: {},
+      prompts: [],
     }),
 }));

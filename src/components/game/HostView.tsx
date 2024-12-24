@@ -9,6 +9,7 @@ import { StartGameButton } from "./StartGameButton";
 import { PlayerSubmission, GamePrompt } from "@/types/game";
 import { toast } from "sonner";
 import { debounce } from "lodash";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export const HostView = () => {
   const gameStore = useGameStore();
@@ -67,6 +68,7 @@ export const HostView = () => {
       }));
 
       setPrompts(formattedPrompts);
+      gameStore.setPrompts(formattedPrompts);
 
       const submissions = (players || []).map((player) => ({
         username: player.username,
@@ -111,11 +113,11 @@ export const HostView = () => {
           table: "game_rooms",
           filter: `code=eq.${gameStore.roomCode}`,
         },
-        async (payload) => {
+        async (payload: RealtimePostgresChangesPayload<any>) => {
           console.log("[HostView] game_rooms update:", payload);
           
           // Only process game start once
-          if (payload.new.status === 'playing' && !isProcessingGameStart) {
+          if (payload.new?.status === 'playing' && !isProcessingGameStart) {
             setIsProcessingGameStart(true);
             await debouncedFetchSubmissions();
             setIsProcessingGameStart(false);

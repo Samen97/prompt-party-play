@@ -28,3 +28,20 @@ export interface GamePrompt {
   image_url: string;
   player_username: string;
 }
+
+export interface GameStoreState {
+  players: Player[];
+  currentRound: number;
+  totalRounds: number;
+  currentImage: string;
+  options: string[];
+  correctPrompt: string;
+  roomCode: string;
+  hostUsername: string | null;
+  isHost: boolean;
+  usedPrompts: string[];
+  usedImages: string[];
+  roundImages: Record<number, string>;
+  prompts: GamePrompt[];
+  setPrompts: (prompts: GamePrompt[]) => void;
+}
