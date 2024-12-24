@@ -50,6 +50,12 @@ export const HostView = () => {
 
       setPlayerSubmissions(submissions);
       setCanStartGame(submissions.every(player => player.hasSubmitted));
+
+      // Update total rounds based on submissions
+      if (submissions.length > 0) {
+        const totalRounds = submissions.length * 2; // Each player contributes 2 prompts
+        gameStore.setTotalRounds(totalRounds);
+      }
     };
 
     // Initial fetch
@@ -90,7 +96,10 @@ export const HostView = () => {
 
     const { error: updateError } = await supabase
       .from('game_rooms')
-      .update({ status: 'playing' })
+      .update({ 
+        status: 'playing',
+        current_round: 1
+      })
       .eq('id', roomData.id);
 
     if (updateError) {

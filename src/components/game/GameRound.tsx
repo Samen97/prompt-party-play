@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useGameStore } from "@/store/gameStore";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface GameRoundProps {
   imageUrl: string;
@@ -24,51 +25,11 @@ export const GameRound = ({
     setHasAnswered(false);
   }, [imageUrl]);
 
-  // Check if all players have answered
-  useEffect(() => {
-    const checkAllPlayersAnswered = async () => {
-      if (!hasAnswered) return;
-
-      const { data: roomData } = await supabase
-        .from('game_rooms')
-        .select()
-        .eq('code', gameStore.roomCode)
-        .single();
-
-      if (roomData) {
-        const { data: playersData } = await supabase
-          .from('game_players')
-          .select()
-          .eq('room_id', roomData.id);
-
-        const nonHostPlayers = playersData?.filter(player => 
-          player.username !== gameStore.hostUsername
-        );
-
-        if (nonHostPlayers && nonHostPlayers.every(player => player.has_answered)) {
-          // Reset all players' has_answered status
-          await supabase
-            .from('game_players')
-            .update({ has_answered: false })
-            .eq('room_id', roomData.id);
-
-          // Trigger next round
-          if (gameStore.isHost) {
-            onSubmitGuess(selectedOption!);
-          }
-        }
-      }
-    };
-
-    checkAllPlayersAnswered();
-  }, [hasAnswered, gameStore.roomCode, gameStore.isHost, gameStore.hostUsername, selectedOption, onSubmitGuess]);
-
   const handleSubmit = async () => {
     if (!selectedOption || hasAnswered) return;
 
     setHasAnswered(true);
 
-    // Update the player's answer status in the database
     const { data: roomData } = await supabase
       .from('game_rooms')
       .select()
@@ -88,6 +49,41 @@ export const GameRound = ({
           .from('game_players')
           .update({ has_answered: true })
           .eq('id', playerData.id);
+
+        // Call onSubmitGuess to process the answer
+        onSubmitGuess(selectedOption);
+
+        // If host, check if all players have answered
+        if (gameStore.isHost) {
+          const { data: allPlayers } = await supabase
+            .from('game_players')
+            .select()
+            .eq('room_id', roomData.id);
+
+          const nonHostPlayers = allPlayers?.filter(player => 
+            player.username !== gameStore.hostUsername
+          );
+
+          if (nonHostPlayers?.every(player => player.has_answered)) {
+            // Reset all players' has_answered status
+            await supabase
+              .from('game_players')
+              .update({ has_answered: false })
+              .eq('room_id', roomData.id);
+
+            // Update room to next round
+            const nextRound = roomData.current_round + 1;
+            await supabase
+              .from('game_rooms')
+              .update({ 
+                current_round: nextRound,
+                current_image: null,
+                current_options: null,
+                correct_prompt: null
+              })
+              .eq('id', roomData.id);
+          }
+        }
       }
     }
   };
@@ -96,6 +92,7 @@ export const GameRound = ({
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold">Which prompt created this image?</h2>
+        <p className="text-gray-600">Round {gameStore.currentRound} of {gameStore.totalRounds}</p>
       </div>
 
       <div className="aspect-square w-full max-w-2xl mx-auto">
@@ -117,7 +114,7 @@ export const GameRound = ({
             }`}
             onClick={() => !hasAnswered && setSelectedOption(option)}
           >
-            <p className="text-lg">{option.replace("A child's drawing of ", "")}</p>
+            <p className="text-lg">{option}</p>
           </Card>
         ))}
       </div>
