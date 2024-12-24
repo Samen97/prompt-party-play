@@ -20,12 +20,15 @@ export const LobbyStatus = () => {
   const [onlinePlayers, setOnlinePlayers] = useState<PlayerPresence[]>([]);
 
   useEffect(() => {
-    if (!gameStore.roomCode) return;
+    if (!gameStore.roomCode || !gameStore.players.length) return;
+
+    const currentPlayer = gameStore.players[gameStore.players.length - 1];
+    if (!currentPlayer) return;
 
     const channel = supabase.channel(`room_${gameStore.roomCode}`, {
       config: {
         presence: {
-          key: gameStore.players[gameStore.players.length - 1].username,
+          key: currentPlayer.username,
         },
       },
     });
@@ -39,18 +42,19 @@ export const LobbyStatus = () => {
         console.log('Presence state updated:', players);
       })
       .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
+        if (status === 'SUBSCRIBED' && currentPlayer) {
           await channel.track({
-            username: gameStore.players[gameStore.players.length - 1].username,
+            username: currentPlayer.username,
             online_at: new Date().toISOString(),
           });
         }
       });
 
     return () => {
+      console.log('Cleaning up realtime subscriptions');
       channel.unsubscribe();
     };
-  }, [gameStore.roomCode]);
+  }, [gameStore.roomCode, gameStore.players]);
 
   return (
     <div className="mt-4">
