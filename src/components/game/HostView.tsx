@@ -24,22 +24,29 @@ export const HostView = () => {
     if (!gameStore.roomCode) return;
 
     // Query the game_rooms table to find the single row
-    const { data: roomData } = await supabase
+    const { data: roomData, error: roomError } = await supabase
       .from("game_rooms")
       .select()
       .eq("code", gameStore.roomCode)
       .single();
 
-    if (!roomData) return;
+    if (roomError || !roomData) {
+      console.error("[HostView] Could not fetch room:", roomError);
+      return;
+    }
 
     // Fetch the players for that room
-    const { data: players } = await supabase
+    const { data: players, error: playersError } = await supabase
       .from("game_players")
       .select("id, username")
       .eq("room_id", roomData.id);
 
+    if (playersError) {
+      console.error("[HostView] Error fetching players:", playersError);
+    }
+
     // Fetch all prompts w/ their associated player usernames
-    const { data: promptsData } = await supabase
+    const { data: promptsData, error: promptsError } = await supabase
       .from("game_prompts")
       .select(`
         id,
@@ -52,6 +59,10 @@ export const HostView = () => {
       `)
       .eq("room_id", roomData.id);
 
+    if (promptsError) {
+      console.error("[HostView] Error fetching prompts:", promptsError);
+    }
+
     // Transform prompts data to match your GamePrompt interface
     const formattedPrompts: GamePrompt[] = (promptsData || []).map((p) => ({
       id: p.id,
@@ -63,7 +74,7 @@ export const HostView = () => {
     // Put them in local state so we can pass to <PromptsPanel />
     setPrompts(formattedPrompts);
 
-    // Build an array of { username, hasSubmitted } for <PlayerSubmissionsPanel />
+    // Build an array of { username, hasSubmitted }
     const submissions = (players || []).map((player) => ({
       username: player.username,
       hasSubmitted: (promptsData || []).some(
@@ -77,13 +88,13 @@ export const HostView = () => {
     const canStart = submissions.every((player) => player.hasSubmitted);
     setCanStartGame(canStart);
 
-    // Optionally update totalRounds (just like you do)
+    // Optionally update totalRounds
     if (submissions.length > 0) {
       const totalRounds = submissions.length * 2;
       gameStore.setTotalRounds(totalRounds);
     }
 
-    // OPTIONAL console log for debugging:
+    // **** OPTIONAL console log for debugging ****
     console.log("[HostView] fetchSubmissions done:", {
       roomId: roomData.id,
       players,
@@ -93,15 +104,13 @@ export const HostView = () => {
 
   // -----------------------------------------
   // 2) Use an effect to set up subscriptions
-  //    to both game_rooms and game_prompts.
   // -----------------------------------------
   useEffect(() => {
-    // Stop if we have no code yet
     if (!gameStore.roomCode) return;
 
     console.log("[HostView] Setting up subscriptions for room:", gameStore.roomCode);
 
-    // Subscribe to game_rooms changes
+    // Subscribe to changes in "game_rooms"
     const roomChannel = supabase
       .channel(`room_${gameStore.roomCode}`)
       .on(
@@ -114,13 +123,13 @@ export const HostView = () => {
         },
         (payload) => {
           console.log("[HostView] game_rooms update:", payload);
-          // We re-fetch so we see the updated status, round, etc.
+          // Re-fetch so we see updated status, round, etc.
           fetchSubmissions();
         }
       )
       .subscribe();
 
-    // Subscribe to game_prompts changes
+    // Subscribe to changes in "game_prompts"
     const promptsChannel = supabase
       .channel(`prompts_${gameStore.roomCode}`)
       .on(
@@ -129,11 +138,10 @@ export const HostView = () => {
           event: "*",
           schema: "public",
           table: "game_prompts",
-          // We can't do filter by `room_id`=??? if we don't have it yet.
-          // But you can do it if you want:
-          // filter: `room_id=eq.${yourRoomId}`
+          // filter: `room_id=eq.${someRoomId}`,  // optionally use if you want
         },
         (payload) => {
+          // *** HERE is our console.log for new/updated game_prompts: ***
           console.log("[HostView] game_prompts update:", payload);
           // If new prompts or updated image_url, let’s fetch again
           fetchSubmissions();
@@ -141,15 +149,14 @@ export const HostView = () => {
       )
       .subscribe();
 
-    // Clean up the subscription on unmount
+    // Cleanup on unmount
     return () => {
       supabase.removeChannel(roomChannel);
       supabase.removeChannel(promptsChannel);
     };
-    // We only want this effect once, or whenever roomCode changes:
   }, [gameStore.roomCode]);
 
-  // 3) Actually fetch once on mount as well
+  // 3) Actually fetch once on mount, if we have a roomCode
   useEffect(() => {
     fetchSubmissions();
   }, [gameStore.roomCode]);
