@@ -35,15 +35,15 @@ export const GameRound = ({
 
     console.log('Current players state:', playersData);
 
-    // For non-host players, we check if everyone except the host has answered
-    if (!gameStore.isHost) {
+    // For host, we only check if non-host players have answered
+    if (gameStore.isHost) {
       const nonHostPlayers = playersData?.filter(
         player => player.username !== gameStore.hostUsername
       );
       return nonHostPlayers?.every(player => player.has_answered);
     }
 
-    // For host, we check if all non-host players have answered
+    // For non-host players, we check if all non-host players (including themselves) have answered
     const nonHostPlayers = playersData?.filter(
       player => player.username !== gameStore.hostUsername
     );
@@ -68,7 +68,7 @@ export const GameRound = ({
         return;
       }
 
-      // Update current player's answer status
+      // Update current player's answer status if they're not the host
       if (!gameStore.isHost) {
         const { data: playerData } = await supabase
           .from('game_players')
