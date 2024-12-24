@@ -32,30 +32,47 @@ export const useGameLogic = () => {
         throw new Error("Room not found");
       }
 
-      // Get prompts specifically assigned to this round number
-      const { data: roundPrompt, error: promptError } = await supabase
+      // Get all unused prompts for this room
+      const { data: availablePrompts, error: promptError } = await supabase
         .from("game_prompts")
         .select("id, prompt, image_url")
         .eq("room_id", roomData.id)
-        .eq("round_number", round)
-        .single();
+        .is("used_in_round", null)
+        .order("created_at");
 
-      if (promptError || !roundPrompt) {
-        console.error("[useGameLogic] Error fetching round prompt:", promptError);
-        toast.error("Failed to fetch prompt for this round");
+      if (promptError || !availablePrompts || availablePrompts.length === 0) {
+        console.error("[useGameLogic] Error fetching available prompts:", promptError);
+        toast.error("No available prompts for this round");
         return "waiting";
       }
 
+      console.log("[useGameLogic] Available unused prompts:", availablePrompts);
+
+      // Select the first unused prompt
+      const selectedPrompt = availablePrompts[0];
+
       console.log("[useGameLogic] Selected prompt for round", round, {
-        promptId: roundPrompt.id,
-        prompt: roundPrompt.prompt,
-        image: roundPrompt.image_url
+        promptId: selectedPrompt.id,
+        prompt: selectedPrompt.prompt,
+        image: selectedPrompt.image_url
       });
+
+      // Mark this prompt as used in this round
+      const { error: updatePromptError } = await supabase
+        .from("game_prompts")
+        .update({ used_in_round: round })
+        .eq("id", selectedPrompt.id);
+
+      if (updatePromptError) {
+        console.error("[useGameLogic] Error marking prompt as used:", updatePromptError);
+        toast.error("Error updating prompt status");
+        return "waiting";
+      }
 
       // Generate false answers
       const { data: response, error: gptError } = await supabase.functions
         .invoke("generate-false-answers", {
-          body: { correctPrompt: roundPrompt.prompt },
+          body: { correctPrompt: selectedPrompt.prompt },
         });
 
       if (gptError || !response?.alternatives) {
@@ -65,26 +82,14 @@ export const useGameLogic = () => {
       }
 
       // Combine & shuffle options
-      const options = [roundPrompt.prompt, ...response.alternatives];
+      const options = [selectedPrompt.prompt, ...response.alternatives];
       const shuffledOptions = options.sort(() => Math.random() - 0.5);
-
-      // Mark this prompt as used in this round
-      const { error: updatePromptError } = await supabase
-        .from("game_prompts")
-        .update({ used_in_round: round })
-        .eq("id", roundPrompt.id);
-
-      if (updatePromptError) {
-        console.error("[useGameLogic] Error marking prompt as used:", updatePromptError);
-        toast.error("Error updating prompt status");
-        return "waiting";
-      }
 
       // Verify the update was successful
       const { data: verifyPrompt } = await supabase
         .from("game_prompts")
         .select("id, prompt, used_in_round")
-        .eq("id", roundPrompt.id)
+        .eq("id", selectedPrompt.id)
         .single();
 
       console.log("[useGameLogic] Verification of prompt update:", verifyPrompt);
@@ -95,9 +100,9 @@ export const useGameLogic = () => {
         .update({
           status: "playing",
           current_round: round,
-          current_image: roundPrompt.image_url,
+          current_image: selectedPrompt.image_url,
           current_options: shuffledOptions,
-          correct_prompt: roundPrompt.prompt,
+          correct_prompt: selectedPrompt.prompt,
         })
         .eq("id", roomData.id);
 
@@ -108,20 +113,20 @@ export const useGameLogic = () => {
       }
 
       console.log("[useGameLogic] Updated game room for round", round, {
-        image: roundPrompt.image_url,
+        image: selectedPrompt.image_url,
         options: shuffledOptions,
-        correctPrompt: roundPrompt.prompt
+        correctPrompt: selectedPrompt.prompt
       });
 
       // Update store
-      gameStore.addUsedPrompt(roundPrompt.prompt);
-      gameStore.addUsedImage(roundPrompt.image_url);
-      gameStore.setRoundImage(round, roundPrompt.image_url);
+      gameStore.addUsedPrompt(selectedPrompt.prompt);
+      gameStore.addUsedImage(selectedPrompt.image_url);
+      gameStore.setRoundImage(round, selectedPrompt.image_url);
       gameStore.setCurrentRound(
         round,
-        roundPrompt.image_url,
+        selectedPrompt.image_url,
         shuffledOptions,
-        roundPrompt.prompt
+        selectedPrompt.prompt
       );
 
       console.log("[useGameLogic] Round", round, "setup complete!");
