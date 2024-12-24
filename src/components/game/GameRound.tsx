@@ -19,106 +19,121 @@ export const GameRound = ({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const gameStore = useGameStore();
 
+  const gameStore = useGameStore();
+  // Assumes you have a reliable way to get the *current player's* username.
+  // If you store it differently, adjust as needed.
+  const currentUsername = gameStore.currentPlayerUsername; 
+  // e.g., gameStore.user?.username or similar
+
+  // Reset local state whenever the image changes (i.e. new round).
   useEffect(() => {
     setSelectedOption(null);
     setHasAnswered(false);
     setIsProcessing(false);
   }, [imageUrl]);
 
+  /**
+   * Checks whether *all* players in the room (including the host)
+   * have answered. If you want only non-host to guess, adjust accordingly.
+   */
   const checkAllPlayersAnswered = async (roomId: string) => {
-    const { data: playersData } = await supabase
-      .from('game_players')
-      .select('*')
-      .eq('room_id', roomId);
+    const { data: playersData, error } = await supabase
+      .from("game_players")
+      .select("*")
+      .eq("room_id", roomId);
 
-    console.log('Current players state:', playersData);
-
-    // For host, we only check if non-host players have answered
-    if (gameStore.isHost) {
-      const nonHostPlayers = playersData?.filter(
-        player => player.username !== gameStore.hostUsername
-      );
-      return nonHostPlayers?.every(player => player.has_answered);
+    if (error || !playersData) {
+      console.error("Error fetching players:", error);
+      return false;
     }
 
-    // For non-host players, we check if all non-host players (including themselves) have answered
-    const nonHostPlayers = playersData?.filter(
-      player => player.username !== gameStore.hostUsername
-    );
-    return nonHostPlayers?.every(player => player.has_answered);
+    console.log("Current players state:", playersData);
+    // Example: everyone must have has_answered = true.
+    return playersData.every((player) => player.has_answered === true);
   };
 
   const handleSubmit = async () => {
+    // Block if no option selected, or if already answered/processing
     if (!selectedOption || hasAnswered || isProcessing) return;
 
     setIsProcessing(true);
 
     try {
-      const { data: roomData } = await supabase
-        .from('game_rooms')
+      // Find the current room
+      const { data: roomData, error: roomError } = await supabase
+        .from("game_rooms")
         .select()
-        .eq('code', gameStore.roomCode)
+        .eq("code", gameStore.roomCode)
         .single();
 
-      if (!roomData) {
-        toast.error('Room not found');
+      if (roomError || !roomData) {
+        toast.error("Room not found");
         setIsProcessing(false);
         return;
       }
 
-      // Update current player's answer status if they're not the host
-      if (!gameStore.isHost) {
-        const { data: playerData } = await supabase
-          .from('game_players')
-          .select()
-          .eq('room_id', roomData.id)
-          .eq('username', gameStore.players[gameStore.players.length - 1].username)
-          .single();
+      // 1) Update current player's has_answered (host or not)
+      const { data: playerData, error: playerError } = await supabase
+        .from("game_players")
+        .select("*")
+        .eq("room_id", roomData.id)
+        .eq("username", currentUsername) // <-- use the *actual* current user
+        .single();
 
-        if (playerData) {
-          await supabase
-            .from('game_players')
-            .update({ has_answered: true })
-            .eq('id', playerData.id);
-        }
+      if (playerError || !playerData) {
+        toast.error("Could not find your player record");
+        setIsProcessing(false);
+        return;
       }
 
-      // Process the guess
+      // Mark this player as answered
+      const { error: updateError } = await supabase
+        .from("game_players")
+        .update({ has_answered: true })
+        .eq("id", playerData.id);
+
+      if (updateError) {
+        toast.error("Failed to update your answer status");
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2) Run your guess handler
       onSubmitGuess(selectedOption);
       setHasAnswered(true);
 
-      // Check if all players have answered
+      // 3) Check if *all* players have answered
       const allAnswered = await checkAllPlayersAnswered(roomData.id);
-      console.log('All players answered:', allAnswered);
+      console.log("All players answered:", allAnswered);
 
       if (allAnswered) {
-        console.log('All players have answered, proceeding to next round');
-        
-        // Reset all players' has_answered status
-        await supabase
-          .from('game_players')
-          .update({ has_answered: false })
-          .eq('room_id', roomData.id);
+        console.log("All players have answered. Proceeding to next round.");
 
-        // Update room to next round
-        const nextRound = roomData.current_round + 1;
+        // (a) Reset everyone's has_answered
         await supabase
-          .from('game_rooms')
-          .update({ 
+          .from("game_players")
+          .update({ has_answered: false })
+          .eq("room_id", roomData.id);
+
+        // (b) Move the room to the next round
+        const nextRound = (roomData.current_round || 0) + 1;
+
+        await supabase
+          .from("game_rooms")
+          .update({
             current_round: nextRound,
             current_image: null,
             current_options: null,
-            correct_prompt: null
+            correct_prompt: null,
           })
-          .eq('id', roomData.id);
+          .eq("id", roomData.id);
 
-        toast.success('Moving to next round...');
+        toast.success("Moving to next round...");
       }
     } catch (error) {
-      console.error('Error submitting answer:', error);
-      toast.error('Error submitting answer');
+      console.error("Error submitting answer:", error);
+      toast.error("Error submitting answer");
     } finally {
       setIsProcessing(false);
     }
@@ -128,7 +143,9 @@ export const GameRound = ({
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold">Which prompt created this image?</h2>
-        <p className="text-gray-600">Round {gameStore.currentRound} of {gameStore.totalRounds}</p>
+        <p className="text-gray-600">
+          Round {gameStore.currentRound} of {gameStore.totalRounds}
+        </p>
       </div>
 
       <div className="aspect-square w-full max-w-2xl mx-auto">
@@ -160,11 +177,11 @@ export const GameRound = ({
         disabled={!selectedOption || hasAnswered || isProcessing}
         className="w-full max-w-md mx-auto bg-primary hover:bg-primary/90"
       >
-        {isProcessing 
-          ? "Processing..." 
-          : hasAnswered 
-            ? "Waiting for other players..." 
-            : "Submit Guess"}
+        {isProcessing
+          ? "Processing..."
+          : hasAnswered
+          ? "Waiting for other players..."
+          : "Submit Guess"}
       </Button>
     </div>
   );
