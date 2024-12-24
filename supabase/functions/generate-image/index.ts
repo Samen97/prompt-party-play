@@ -8,6 +8,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const truncatePrompt = (prompt: string): string => {
+  // Keep prompt under 1000 characters for DALL-E
+  return prompt.length > 950 
+    ? prompt.substring(0, 947) + '...' 
+    : prompt;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -34,10 +41,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert at creating prompts for generating children's drawings. 
-                     Take the input and enhance it to create a more detailed prompt that will 
-                     result in an image that looks like it was drawn by a 5-year-old child. 
-                     Add details about using crayons, simple shapes, and bright colors.`
+            content: 'You are an expert at creating prompts for generating children\'s drawings. Take the input and enhance it to create a more detailed prompt that will result in an image that looks like it was drawn by a 5-year-old child. Keep your response concise and under 500 characters.'
           },
           {
             role: 'user',
@@ -54,7 +58,7 @@ serve(async (req) => {
     }
 
     const gptData = await gptResponse.json();
-    const enhancedPrompt = gptData.choices[0].message.content;
+    const enhancedPrompt = truncatePrompt(gptData.choices[0].message.content);
     console.log('Enhanced prompt:', enhancedPrompt);
 
     // 2) Generate the image with DALL-E 2
