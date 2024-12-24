@@ -3,8 +3,9 @@ import { RoomCreation } from "@/components/game/RoomCreation";
 import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
 import { GameResults } from "@/components/game/GameResults";
-import { GameControls } from "@/components/game/GameControls";
 import { LobbyStatus } from "@/components/game/LobbyStatus";
+import { GameHeader } from "@/components/game/GameHeader";
+import { HostView } from "@/components/game/HostView";
 import { generateImage } from "@/services/openai";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
@@ -18,7 +19,6 @@ const Index = () => {
   const gameStore = useGameStore();
   const { startNewRound } = useGameLogic();
 
-  // Subscribe to real-time updates
   useGameSubscription(gameStore.roomCode, gameState, setGameState, startNewRound);
 
   const handleCreateRoom = async (username: string) => {
@@ -35,22 +35,9 @@ const Index = () => {
       return;
     }
 
-    const { error: playerError } = await supabase
-      .from('game_players')
-      .insert([{ 
-        room_id: roomData.id, 
-        username: username,
-      }]);
-
-    if (playerError) {
-      toast.error('Failed to join room');
-      return;
-    }
-
     gameStore.setRoomCode(roomCode);
     gameStore.setHost(username);
-    gameStore.addPlayer(username);
-    setGameState("prompt-submission");
+    setGameState("waiting");
     toast.success(`Room created! Share this code with players: ${roomCode}`);
   };
 
@@ -122,50 +109,18 @@ const Index = () => {
 
       const playerId = gameStore.players[gameStore.players.length - 1].id;
       gameStore.updatePlayerPrompts(playerId, prompts, images);
-      
-      if (gameStore.isHost) {
-        toast.success("Images generated! Waiting for other players...");
-      } else {
-        setGameState("waiting");
-        toast.success("Images generated successfully! Waiting for host to start the game.");
-      }
+      setGameState("waiting");
+      toast.success("Images generated successfully! Waiting for other players to finish.");
     } catch (error) {
       console.error('Image generation error:', error);
       toast.error("Error generating images. Please try again.");
     }
   };
 
-  const handleSubmitGuess = (guess: string) => {
-    const playerId = gameStore.players[gameStore.players.length - 1].id;
-    if (guess === gameStore.correctPrompt) {
-      gameStore.updateScore(playerId, 100);
-      toast.success("Correct guess! +100 points");
-    } else {
-      toast.error("Wrong guess! The correct prompt was: " + gameStore.correctPrompt);
-    }
-
-    if (gameStore.isHost) {
-      setTimeout(() => {
-        const newState = startNewRound();
-        if (newState !== gameState) {
-          setGameState(newState);
-        }
-      }, 2000);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50">
       <div className="container mx-auto py-8">
-        {gameStore.roomCode && (
-          <div className="mb-8 p-6 bg-white rounded-lg shadow-lg text-center">
-            <h2 className="text-xl font-bold mb-2">Room Code</h2>
-            <p className="text-4xl font-mono bg-gray-100 p-4 rounded select-all cursor-pointer">
-              {gameStore.roomCode}
-            </p>
-            <p className="text-sm text-gray-500 mt-2">Click to copy</p>
-          </div>
-        )}
+        {gameStore.roomCode && <GameHeader />}
 
         {gameState === "lobby" && (
           <RoomCreation
@@ -174,61 +129,37 @@ const Index = () => {
           />
         )}
 
-        {gameState === "prompt-submission" && (
+        {!gameStore.isHost && (
           <>
-            <div className="text-center mb-4">
-              <h3 className="text-xl font-bold">
-                {gameStore.isHost ? "Host View" : "Player View"}
-              </h3>
-              <p className="text-gray-600">
-                {gameStore.isHost
-                  ? "Submit your prompts and wait for other players"
-                  : "Submit your prompts"}
-              </p>
-            </div>
-            <PromptSubmission onSubmitPrompts={handleSubmitPrompts} />
-            <LobbyStatus />
-            <GameControls 
-              gameState={gameState}
-              setGameState={setGameState}
-              startNewRound={startNewRound}
-            />
-          </>
-        )}
+            {gameState === "prompt-submission" && (
+              <>
+                <PromptSubmission onSubmitPrompts={handleSubmitPrompts} />
+                <LobbyStatus />
+              </>
+            )}
 
-        {gameState === "waiting" && (
-          <div className="text-center p-6">
-            <h3 className="text-xl font-bold mb-2">Waiting for Host</h3>
-            <p className="text-gray-600">
-              Your prompts have been submitted. Please wait for the host to start the game.
-            </p>
-            <LobbyStatus />
-          </div>
-        )}
-
-        {gameState === "playing" && (
-          <>
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-center mb-2">
-                Round {gameStore.currentRound} of {gameStore.totalRounds}
-              </h3>
-              <div className="flex justify-center space-x-4">
-                {gameStore.players.map((player) => (
-                  <div key={player.id} className="text-center">
-                    <p className="font-semibold">{player.username}</p>
-                    <p className="text-sm">Score: {player.score}</p>
-                  </div>
-                ))}
+            {gameState === "waiting" && (
+              <div className="text-center p-6">
+                <h3 className="text-xl font-bold mb-2">Waiting for Other Players</h3>
+                <p className="text-gray-600">
+                  Your prompts have been submitted. Please wait for other players to finish.
+                </p>
+                <LobbyStatus />
               </div>
-            </div>
-            <GameRound
-              imageUrl={gameStore.currentImage}
-              options={gameStore.options}
-              onSubmitGuess={handleSubmitGuess}
-              timeLeft={30}
-            />
+            )}
+
+            {gameState === "playing" && (
+              <GameRound
+                imageUrl={gameStore.currentImage}
+                options={gameStore.options}
+                onSubmitGuess={handleSubmitGuess}
+                timeLeft={30}
+              />
+            )}
           </>
         )}
+
+        {gameStore.isHost && gameState !== "lobby" && <HostView />}
 
         {gameState === "results" && <GameResults />}
       </div>
