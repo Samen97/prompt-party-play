@@ -8,6 +8,13 @@ interface PlayerPresence {
   online_at: string;
 }
 
+interface PresenceState {
+  [key: string]: {
+    username: string;
+    online_at: string;
+  }[];
+}
+
 export const LobbyStatus = () => {
   const gameStore = useGameStore();
   const [onlinePlayers, setOnlinePlayers] = useState<PlayerPresence[]>([]);
@@ -25,8 +32,9 @@ export const LobbyStatus = () => {
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        const presenceState = channel.presenceState();
-        const players = Object.values(presenceState).flat() as PlayerPresence[];
+        const presenceState = channel.presenceState() as PresenceState;
+        // Flatten the presence state object into an array of players
+        const players = Object.values(presenceState).flat();
         setOnlinePlayers(players);
         console.log('Presence state updated:', players);
       })
