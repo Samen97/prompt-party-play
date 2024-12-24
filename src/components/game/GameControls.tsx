@@ -41,7 +41,8 @@ export const GameControls = ({
     }
   };
 
-  if (gameState !== 'prompt-submission' || !gameStore.isHost || gameStore.players.length <= 1) {
+  // Only show start button for host and when in prompt-submission state
+  if (gameState !== 'prompt-submission' || !gameStore.isHost) {
     return null;
   }
 

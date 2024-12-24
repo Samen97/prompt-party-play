@@ -4,6 +4,7 @@ import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
 import { GameResults } from "@/components/game/GameResults";
 import { GameControls } from "@/components/game/GameControls";
+import { LobbyStatus } from "@/components/game/LobbyStatus";
 import { generateImage } from "@/services/openai";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
@@ -186,6 +187,7 @@ const Index = () => {
               </p>
             </div>
             <PromptSubmission onSubmitPrompts={handleSubmitPrompts} />
+            <LobbyStatus />
             <GameControls 
               gameState={gameState}
               setGameState={setGameState}
@@ -200,6 +202,7 @@ const Index = () => {
             <p className="text-gray-600">
               Your prompts have been submitted. Please wait for the host to start the game.
             </p>
+            <LobbyStatus />
           </div>
         )}
 
