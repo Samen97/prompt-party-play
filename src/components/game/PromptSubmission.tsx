@@ -37,9 +37,7 @@ export const PromptSubmission = ({
 
   const handlePromptChange = (index: number, value: string) => {
     const newPrompts = [...prompts];
-    newPrompts[index] = value.startsWith("A child's drawing of") 
-      ? value 
-      : `A child's drawing of ${value}`;
+    newPrompts[index] = value;
     setPrompts(newPrompts);
   };
 
@@ -54,12 +52,17 @@ export const PromptSubmission = ({
       return;
     }
 
-    if (prompts.some(prompt => prompt.replace("A child's drawing of", "").trim().length < 3)) {
+    if (prompts.some(prompt => prompt.trim().length < 3)) {
       toast.error("Each prompt must be at least 3 characters long");
       return;
     }
 
-    onSubmitPrompts(prompts);
+    // Add "A child's drawing of" prefix when submitting
+    const formattedPrompts = prompts.map(prompt => 
+      `A child's drawing of ${prompt.trim()}`
+    );
+
+    onSubmitPrompts(formattedPrompts);
   };
 
   return (
@@ -80,7 +83,7 @@ export const PromptSubmission = ({
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500 w-6">{index + 1}.</span>
               <Input
-                value={prompt.replace("A child's drawing of", "").trim()}
+                value={prompt}
                 onChange={(e) => handlePromptChange(index, e.target.value)}
                 placeholder="Enter a detailed description..."
                 className="flex-1"

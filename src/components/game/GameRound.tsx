@@ -26,11 +26,45 @@ export const GameRound = ({
     setHasAnswered(false);
   }, [imageUrl]);
 
+  // Check if all players have answered
+  useEffect(() => {
+    const checkAllPlayersAnswered = async () => {
+      if (!hasAnswered) return;
+
+      const { data: roomData } = await supabase
+        .from('game_rooms')
+        .select()
+        .eq('code', gameStore.roomCode)
+        .single();
+
+      if (roomData) {
+        const { data: playersData } = await supabase
+          .from('game_players')
+          .select()
+          .eq('room_id', roomData.id);
+
+        if (playersData && playersData.every(player => player.has_answered)) {
+          // Reset all players' has_answered status
+          await supabase
+            .from('game_players')
+            .update({ has_answered: false })
+            .eq('room_id', roomData.id);
+
+          // Trigger next round
+          if (gameStore.isHost) {
+            onSubmitGuess(selectedOption!);
+          }
+        }
+      }
+    };
+
+    checkAllPlayersAnswered();
+  }, [hasAnswered, gameStore.roomCode, gameStore.isHost, selectedOption, onSubmitGuess]);
+
   const handleSubmit = async () => {
     if (!selectedOption || hasAnswered) return;
 
     setHasAnswered(true);
-    onSubmitGuess(selectedOption);
 
     // Update the player's answer status in the database
     const { data: roomData } = await supabase
@@ -84,7 +118,7 @@ export const GameRound = ({
             }`}
             onClick={() => !hasAnswered && setSelectedOption(option)}
           >
-            <p className="text-lg">{option}</p>
+            <p className="text-lg">{option.replace("A child's drawing of ", "")}</p>
           </Card>
         ))}
       </div>
