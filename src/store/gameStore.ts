@@ -28,13 +28,10 @@ interface GameState {
   reset: () => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
+export const useGameStore = create<GameState>((set, get) => ({
   players: [],
-  currentRound: 0,
-  // Calculate total rounds based on number of players * 2
-  get totalRounds() {
-    return this.players.length * 2;
-  },
+  currentRound: 1,
+  totalRounds: 0,
   currentImage: '',
   options: [],
   correctPrompt: '',
@@ -43,8 +40,8 @@ export const useGameStore = create<GameState>((set) => ({
   isHost: false,
 
   addPlayer: (username) =>
-    set((state) => ({
-      players: [
+    set((state) => {
+      const newPlayers = [
         ...state.players,
         {
           id: Math.random().toString(36).substr(2, 9),
@@ -53,8 +50,13 @@ export const useGameStore = create<GameState>((set) => ({
           prompts: [],
           images: [],
         },
-      ],
-    })),
+      ];
+      // Update total rounds based on number of players * 2
+      return {
+        players: newPlayers,
+        totalRounds: newPlayers.length * 2
+      };
+    }),
 
   setRoomCode: (code) => set({ roomCode: code }),
 
@@ -103,7 +105,8 @@ export const useGameStore = create<GameState>((set) => ({
   reset: () =>
     set({
       players: [],
-      currentRound: 0,
+      currentRound: 1,
+      totalRounds: 0,
       currentImage: '',
       options: [],
       correctPrompt: '',

@@ -20,7 +20,7 @@ export const useGameLogic = () => {
     }
 
     // Only end game if we've completed all rounds
-    if (round >= gameStore.totalRounds) {
+    if (round > gameStore.totalRounds) {
       console.log("Game over - all rounds completed");
       return "results";
     }
@@ -68,12 +68,12 @@ export const useGameLogic = () => {
           current_image: correctImage,
           current_options: shuffledOptions,
           correct_prompt: correctPrompt,
-          current_round: round + 1
+          current_round: round
         })
         .eq('id', roomData.id);
 
-      console.log(`Starting round ${round + 1} of ${gameStore.totalRounds}`);
-      gameStore.setCurrentRound(round + 1, correctImage, shuffledOptions, correctPrompt);
+      console.log(`Starting round ${round} of ${gameStore.totalRounds}`);
+      gameStore.setCurrentRound(round, correctImage, shuffledOptions, correctPrompt);
       
       return "playing";
     } catch (error) {
