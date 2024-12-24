@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { GameState } from "@/types/game";
 import { useGameStore } from "@/store/gameStore";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface GameControlsProps {
   gameState: GameState;
