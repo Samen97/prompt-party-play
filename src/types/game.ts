@@ -29,6 +29,14 @@ export interface GamePrompt {
   player_username: string;
 }
 
+export interface Player {
+  id: string;
+  username: string;
+  score: number;
+  prompts: string[];
+  images: string[];
+}
+
 export interface GameStoreState {
   players: Player[];
   currentRound: number;
