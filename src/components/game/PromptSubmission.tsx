@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { useGameStore } from "@/store/gameStore";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PromptSubmissionProps {
   onSubmitPrompts: (prompts: string[]) => void;
@@ -36,11 +37,49 @@ export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => 
 
     try {
       setIsSubmitting(true);
+      
+      // Get the current room data
+      const { data: roomData } = await supabase
+        .from('game_rooms')
+        .select()
+        .eq('code', gameStore.roomCode)
+        .single();
+
+      if (!roomData) {
+        throw new Error('Room not found');
+      }
+
+      // Get the current player
+      const { data: playerData } = await supabase
+        .from('game_players')
+        .select()
+        .eq('room_id', roomData.id)
+        .eq('username', gameStore.players[gameStore.players.length - 1].username)
+        .single();
+
+      if (!playerData) {
+        throw new Error('Player not found');
+      }
+
+      // Submit each prompt with its round number
+      await Promise.all(prompts.map(async (prompt, index) => {
+        const roundNumber = index + 1; // First prompt is round 1, second is round 2
+        await supabase
+          .from('game_prompts')
+          .insert([{
+            room_id: roomData.id,
+            player_id: playerData.id,
+            prompt: prompt,
+            round_number: roundNumber
+          }]);
+      }));
+
       await onSubmitPrompts(prompts);
       toast.success("Prompts submitted successfully!");
     } catch (error) {
       console.error('Error submitting prompts:', error);
       toast.error("Failed to submit prompts. Please try again.");
+    } finally {
       setIsSubmitting(false);
     }
   };
