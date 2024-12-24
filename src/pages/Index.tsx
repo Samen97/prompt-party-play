@@ -11,11 +11,10 @@ type GameState = "api-key" | "lobby" | "prompt-submission" | "playing" | "result
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("api-key");
-  const [apiKey, setApiKey] = useState("");
   const gameStore = useGameStore();
 
   const handleApiKeySet = (key: string) => {
-    setApiKey(key);
+    gameStore.setHostApiKey(key);
     setGameState("lobby");
   };
 
@@ -29,7 +28,6 @@ const Index = () => {
   };
 
   const handleJoinRoom = (username: string, roomCode: string) => {
-    // Add the player to the game store
     gameStore.setRoomCode(roomCode);
     gameStore.addPlayer(username);
     setGameState("prompt-submission");
@@ -37,11 +35,16 @@ const Index = () => {
   };
 
   const handleSubmitPrompts = async (prompts: string[]) => {
+    const hostApiKey = gameStore.hostApiKey;
+    if (!hostApiKey) {
+      toast.error("Host API key not found. Please try rejoining the room.");
+      return;
+    }
+
     toast.info("Generating images... This may take a minute.");
     try {
-      // Use the host's API key for all image generation
       const images = await Promise.all(
-        prompts.map((prompt) => generateImage(prompt, apiKey))
+        prompts.map((prompt) => generateImage(prompt, hostApiKey))
       );
       
       const playerId = gameStore.players[gameStore.players.length - 1].id;
@@ -50,6 +53,7 @@ const Index = () => {
       setGameState("playing");
       toast.success("Images generated successfully!");
     } catch (error) {
+      console.error('Image generation error:', error);
       toast.error("Error generating images. Please try again.");
     }
   };
