@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Configuration, OpenAIApi } from 'https://esm.sh/openai@3.1.0'
+import OpenAI from 'https://esm.sh/openai@4.28.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,22 +15,21 @@ serve(async (req) => {
   try {
     const { correctPrompt } = await req.json()
 
-    const configuration = new Configuration({
+    const openai = new OpenAI({
       apiKey: Deno.env.get('OPENAI_API_KEY'),
     })
-    const openai = new OpenAIApi(configuration)
 
     const prompt = `Given this image prompt: "${correctPrompt}", generate 3 alternative prompts that are similar but different in an interesting way. For example, if the prompt is "a cow in space", you might suggest "a zebra in a spacesuit", "an elephant floating through the cosmos", and "a giraffe on the moon". Make them creative and fun, but related to the original concept. Return only the array of 3 alternatives, nothing else.`
 
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4",
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       messages: [
         { "role": "system", "content": "You are a creative assistant that generates alternative prompts for an image generation game. Your responses should be just the array of 3 alternatives, no explanation or other text." },
         { "role": "user", "content": prompt }
       ],
     })
 
-    const alternatives = completion.data.choices[0].message?.content?.split('\n').map(alt => alt.replace(/^\d+\.\s*/, '').trim()) || []
+    const alternatives = completion.choices[0].message.content?.split('\n').map(alt => alt.replace(/^\d+\.\s*/, '').trim()) || []
 
     console.log('Generated alternatives:', alternatives)
 
