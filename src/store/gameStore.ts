@@ -24,6 +24,7 @@ interface GameState {
   updatePlayerPrompts: (playerId: string, prompts: string[], images: string[]) => void;
   updateScore: (playerId: string, points: number) => void;
   setCurrentRound: (round: number, image: string, options: string[], correctPrompt: string) => void;
+  setTotalRounds: (rounds: number) => void;
   addPrompt: (prompt: string, imageUrl: string) => void;
   reset: () => void;
 }
@@ -51,10 +52,11 @@ export const useGameStore = create<GameState>((set, get) => ({
           images: [],
         },
       ];
-      // Update total rounds based on number of players * 2
+      // Calculate total rounds based on number of prompts per player (2) * number of players
+      const totalRounds = newPlayers.length * 2;
       return {
         players: newPlayers,
-        totalRounds: newPlayers.length * 2
+        totalRounds
       };
     }),
 
@@ -83,6 +85,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       options,
       correctPrompt,
     }),
+
+  setTotalRounds: (rounds) => set({ totalRounds: rounds }),
 
   addPrompt: (prompt, imageUrl) =>
     set((state) => {

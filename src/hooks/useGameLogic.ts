@@ -20,7 +20,7 @@ export const useGameLogic = () => {
     }
 
     // Only end game if we've completed all rounds
-    if (round > gameStore.totalRounds) {
+    if (round > gameStore.totalRounds && gameStore.totalRounds > 0) {
       console.log("Game over - all rounds completed");
       return "results";
     }
