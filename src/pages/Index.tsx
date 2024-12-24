@@ -1,5 +1,4 @@
-import { useState, useCallback } from "react";
-import { ApiKeyInput } from "@/components/game/ApiKeyInput";
+import { useState } from "react";
 import { RoomCreation } from "@/components/game/RoomCreation";
 import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
@@ -7,16 +6,11 @@ import { generateImage } from "@/services/openai";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
 
-type GameState = "api-key" | "lobby" | "prompt-submission" | "playing" | "results";
+type GameState = "lobby" | "prompt-submission" | "playing" | "results";
 
 const Index = () => {
-  const [gameState, setGameState] = useState<GameState>("api-key");
+  const [gameState, setGameState] = useState<GameState>("lobby");
   const gameStore = useGameStore();
-
-  const handleApiKeySet = (key: string) => {
-    gameStore.setHostApiKey(key);
-    setGameState("lobby");
-  };
 
   const handleCreateRoom = (username: string) => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -35,16 +29,10 @@ const Index = () => {
   };
 
   const handleSubmitPrompts = async (prompts: string[]) => {
-    const hostApiKey = gameStore.hostApiKey;
-    if (!hostApiKey) {
-      toast.error("Host API key not found. Please try rejoining the room.");
-      return;
-    }
-
     toast.info("Generating images... This may take a minute.");
     try {
       const images = await Promise.all(
-        prompts.map((prompt) => generateImage(prompt, hostApiKey))
+        prompts.map((prompt) => generateImage(prompt))
       );
       
       const playerId = gameStore.players[gameStore.players.length - 1].id;
@@ -101,7 +89,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50">
       <div className="container mx-auto py-8">
-        {/* Always show room code if it exists */}
         {gameStore.roomCode && (
           <div className="mb-8 p-6 bg-white rounded-lg shadow-lg text-center">
             <h2 className="text-xl font-bold mb-2">Room Code</h2>
@@ -112,32 +99,11 @@ const Index = () => {
           </div>
         )}
 
-        {gameState === "api-key" && (
-          <ApiKeyInput onApiKeySet={handleApiKeySet} />
-        )}
-
         {gameState === "lobby" && (
-          <>
-            {gameStore.isHost ? (
-              <div className="space-y-6 w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-                <h2 className="text-2xl font-bold text-center">Waiting for Players</h2>
-                <p className="text-center text-gray-600">Share the room code above with players to join</p>
-                <div className="space-y-4">
-                  <h3 className="font-semibold">Connected Players:</h3>
-                  {gameStore.players.map((player) => (
-                    <div key={player.id} className="p-3 bg-gray-50 rounded-lg">
-                      {player.username} {player.id === gameStore.hostUsername && "(Host)"}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <RoomCreation
-                onCreateRoom={handleCreateRoom}
-                onJoinRoom={handleJoinRoom}
-              />
-            )}
-          </>
+          <RoomCreation
+            onCreateRoom={handleCreateRoom}
+            onJoinRoom={handleJoinRoom}
+          />
         )}
 
         {gameState === "prompt-submission" && !gameStore.isHost && (
