@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useGameStore } from "@/store/gameStore";
 import { useGameRound } from "@/hooks/useGameRound";
+import { useEffect } from "react";
 
 interface GameRoundProps {
   imageUrl: string;
@@ -23,6 +24,18 @@ export const GameRound = ({
     handleSubmit,
   } = useGameRound(imageUrl, onSubmitGuess);
 
+  useEffect(() => {
+    console.log('GameRound rendered with:', {
+      round: gameStore.currentRound,
+      imageUrl,
+      hasOptions: options?.length > 0
+    });
+
+    if (!imageUrl) {
+      console.error('No image URL provided for round:', gameStore.currentRound);
+    }
+  }, [imageUrl, options, gameStore.currentRound]);
+
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
       <div className="text-center">
@@ -33,11 +46,21 @@ export const GameRound = ({
       </div>
 
       <div className="aspect-square w-full max-w-2xl mx-auto">
-        <img
-          src={imageUrl}
-          alt="AI Generated Image"
-          className="w-full h-full object-cover rounded-lg shadow-lg"
-        />
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt="AI Generated Image"
+            className="w-full h-full object-cover rounded-lg shadow-lg"
+            onError={(e) => {
+              console.error('Image failed to load:', imageUrl);
+              e.currentTarget.src = '/placeholder.svg';
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
+            <p className="text-gray-500">Image not available</p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

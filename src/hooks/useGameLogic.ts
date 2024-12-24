@@ -14,6 +14,14 @@ export const useGameLogic = () => {
     const allPrompts = gameStore.players.flatMap((p) => p.prompts);
     const allImages = gameStore.players.flatMap((p) => p.images);
     
+    console.log('Starting new round with:', {
+      round,
+      totalPrompts: allPrompts.length,
+      totalImages: allImages.length,
+      usedPrompts: gameStore.usedPrompts.length,
+      usedImages: gameStore.usedImages.length
+    });
+    
     if (allPrompts.length === 0 || allImages.length === 0) {
       console.error("No prompts or images available");
       return "waiting";
@@ -42,6 +50,11 @@ export const useGameLogic = () => {
       const unusedPrompts = allPrompts.filter(prompt => !gameStore.usedPrompts.includes(prompt));
       const unusedImages = allImages.filter(image => !gameStore.usedImages.includes(image));
       
+      console.log('Available items:', {
+        unusedPrompts: unusedPrompts.length,
+        unusedImages: unusedImages.length
+      });
+      
       // If we've used all prompts/images, reset the arrays
       if (unusedPrompts.length === 0 || unusedImages.length === 0) {
         console.log("Resetting used prompts and images");
@@ -54,7 +67,11 @@ export const useGameLogic = () => {
       const correctPrompt = unusedPrompts[randomIndex];
       const correctImage = unusedImages[randomIndex];
 
-      console.log('Starting round', round, 'with prompt:', correctPrompt);
+      console.log('Selected for round:', {
+        round,
+        prompt: correctPrompt,
+        imageUrl: correctImage
+      });
 
       // Generate false answers using GPT-4
       const { data: response, error: gptError } = await supabase.functions
@@ -82,7 +99,8 @@ export const useGameLogic = () => {
           current_image: correctImage,
           current_options: shuffledOptions,
           correct_prompt: correctPrompt,
-          current_round: round
+          current_round: round,
+          status: 'playing'
         })
         .eq('id', roomData.id);
 
@@ -92,7 +110,12 @@ export const useGameLogic = () => {
         return "waiting";
       }
 
-      console.log(`Starting round ${round} of ${gameStore.totalRounds}`);
+      console.log('Round setup complete:', {
+        round,
+        image: correctImage,
+        options: shuffledOptions,
+        correctPrompt
+      });
       
       // Mark prompt and image as used
       gameStore.addUsedPrompt(correctPrompt);
