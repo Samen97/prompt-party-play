@@ -13,6 +13,7 @@ serve(async (req) => {
 
   try {
     const { prompt } = await req.json()
+    console.log('Generating image for prompt:', prompt)
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -30,6 +31,10 @@ serve(async (req) => {
 
     const data = await response.json()
     console.log('OpenAI API Response:', data)
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${data.error?.message || 'Unknown error'}`)
+    }
 
     return new Response(
       JSON.stringify({ imageUrl: data.data[0].url }),

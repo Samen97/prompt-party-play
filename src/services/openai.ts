@@ -6,7 +6,12 @@ export const generateImage = async (prompt: string): Promise<string> => {
   })
 
   if (error) {
+    console.error('Image generation error:', error)
     throw new Error(error.message)
+  }
+
+  if (!data?.imageUrl) {
+    throw new Error('No image URL returned from the API')
   }
 
   return data.imageUrl
