@@ -19,7 +19,10 @@ const Index = () => {
   const gameStore = useGameStore();
   const { startNewRound } = useGameLogic();
 
-  useGameSubscription(gameStore.roomCode, gameState, setGameState, startNewRound);
+  useGameSubscription(gameStore.roomCode, gameState, setGameState, async () => {
+    const newState = await startNewRound();
+    return newState;
+  });
 
   const handleCreateRoom = async (username: string) => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();

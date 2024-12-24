@@ -1,5 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import "https://deno.land/x/xhr@0.1.0/mod.ts"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Configuration, OpenAIApi } from 'https://esm.sh/openai@3.1.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,40 +15,40 @@ serve(async (req) => {
   try {
     const { correctPrompt } = await req.json()
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: "You are an AI that generates plausible but incorrect answers for an image guessing game. Each answer should be related to the correct answer in some way but clearly different. Return exactly 3 alternatives in a JSON array format."
-          },
-          {
-            role: 'user',
-            content: `Generate 3 plausible but incorrect alternatives for this image prompt: "${correctPrompt}". Each alternative should start with "A child's drawing of" and be related but different. Return only a JSON array of strings.`
-          }
-        ],
-        response_format: { type: "json_object" }
-      }),
+    const configuration = new Configuration({
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
+    })
+    const openai = new OpenAIApi(configuration)
+
+    const prompt = `Given this image prompt: "${correctPrompt}", generate 3 alternative prompts that are similar but different in an interesting way. For example, if the prompt is "a cow in space", you might suggest "a zebra in a spacesuit", "an elephant floating through the cosmos", and "a giraffe on the moon". Make them creative and fun, but related to the original concept. Return only the array of 3 alternatives, nothing else.`
+
+    const completion = await openai.createChatCompletion({
+      model: "gpt-4",
+      messages: [
+        { "role": "system", "content": "You are a creative assistant that generates alternative prompts for an image generation game. Your responses should be just the array of 3 alternatives, no explanation or other text." },
+        { "role": "user", "content": prompt }
+      ],
     })
 
-    const data = await response.json()
-    const alternatives = JSON.parse(data.choices[0].message.content).alternatives
+    const alternatives = completion.data.choices[0].message?.content?.split('\n').map(alt => alt.replace(/^\d+\.\s*/, '').trim()) || []
+
+    console.log('Generated alternatives:', alternatives)
 
     return new Response(
       JSON.stringify({ alternatives }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
     )
   } catch (error) {
-    console.error('Error generating false answers:', error)
+    console.error('Error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      },
     )
   }
 })

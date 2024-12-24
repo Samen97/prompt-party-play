@@ -89,7 +89,10 @@ export type Database = {
       game_rooms: {
         Row: {
           code: string
+          correct_prompt: string | null
           created_at: string | null
+          current_image: string | null
+          current_options: string[] | null
           current_round: number | null
           host_id: string
           id: string
@@ -97,7 +100,10 @@ export type Database = {
         }
         Insert: {
           code: string
+          correct_prompt?: string | null
           created_at?: string | null
+          current_image?: string | null
+          current_options?: string[] | null
           current_round?: number | null
           host_id: string
           id?: string
@@ -105,7 +111,10 @@ export type Database = {
         }
         Update: {
           code?: string
+          correct_prompt?: string | null
           created_at?: string | null
+          current_image?: string | null
+          current_options?: string[] | null
           current_round?: number | null
           host_id?: string
           id?: string
