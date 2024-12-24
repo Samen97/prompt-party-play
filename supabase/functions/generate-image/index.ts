@@ -21,7 +21,8 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    // 1) ENHANCE THE PROMPT WITH GPT-4O-MINI
+    // 1) First, enhance the prompt with GPT-4
+    console.log('Enhancing prompt with GPT-4...');
     const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -29,15 +30,14 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // Keep the specialized model
         model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
             content: `You are an expert at creating prompts for generating children's drawings. 
-                      Take the input and enhance it to create a more detailed prompt that will 
-                      result in an image that looks like it was drawn by a 5-year-old child. 
-                      Add details about using crayons, simple shapes, and bright colors.`
+                     Take the input and enhance it to create a more detailed prompt that will 
+                     result in an image that looks like it was drawn by a 5-year-old child. 
+                     Add details about using crayons, simple shapes, and bright colors.`
           },
           {
             role: 'user',
@@ -48,16 +48,17 @@ serve(async (req) => {
     });
 
     if (!gptResponse.ok) {
-      const errorData = await gptResponse.json();
-      console.error('GPT-4O-MINI API error:', errorData);
-      throw new Error(`GPT-4O-MINI API error: ${errorData.error?.message || 'Unknown error'}`);
+      const errorText = await gptResponse.text();
+      console.error('GPT API error response:', errorText);
+      throw new Error(`GPT API error: ${gptResponse.status} ${gptResponse.statusText}`);
     }
 
     const gptData = await gptResponse.json();
     const enhancedPrompt = gptData.choices[0].message.content;
     console.log('Enhanced prompt:', enhancedPrompt);
 
-    // 2) GENERATE THE IMAGE WITH DALL-E-3
+    // 2) Generate the image with DALL-E
+    console.log('Generating image with DALL-E...');
     const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -74,15 +75,14 @@ serve(async (req) => {
     });
 
     if (!imageResponse.ok) {
-      const errorData = await imageResponse.json();
-      console.error('DALL-E-3 API error:', errorData);
-      throw new Error(`DALL-E-3 API error: ${errorData.error?.message || 'Unknown error'}`);
+      const errorText = await imageResponse.text();
+      console.error('DALL-E API error response:', errorText);
+      throw new Error(`DALL-E API error: ${imageResponse.status} ${imageResponse.statusText}`);
     }
 
     const imageData = await imageResponse.json();
-    console.log('Image generation response:', imageData);
+    console.log('Image generation successful');
 
-    // If there's no URL in the response, throw an error
     if (!imageData.data?.[0]?.url) {
       throw new Error('No image URL returned from the API');
     }
@@ -93,11 +93,11 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in generate-image function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.stack
+        error: 'Failed to generate image',
+        details: error.message,
       }),
       { 
         status: 500, 
