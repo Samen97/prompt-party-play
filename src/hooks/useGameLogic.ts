@@ -7,20 +7,19 @@ export const useGameLogic = () => {
   const gameStore = useGameStore();
 
   const startNewRound = useCallback(async () => {
-    // Get current round from store
     const round = gameStore.currentRound;
+    
+    console.log('Starting new round with:', {
+      round,
+      totalPrompts: gameStore.players.flatMap((p) => p.prompts).length,
+      totalImages: gameStore.players.flatMap((p) => p.images).length,
+      usedPrompts: gameStore.usedPrompts.length,
+      usedImages: gameStore.usedImages.length
+    });
     
     // Check if we have any prompts and images before proceeding
     const allPrompts = gameStore.players.flatMap((p) => p.prompts);
     const allImages = gameStore.players.flatMap((p) => p.images);
-    
-    console.log('Starting new round with:', {
-      round,
-      totalPrompts: allPrompts.length,
-      totalImages: allImages.length,
-      usedPrompts: gameStore.usedPrompts.length,
-      usedImages: gameStore.usedImages.length
-    });
     
     if (allPrompts.length === 0 || allImages.length === 0) {
       console.error("No prompts or images available");
@@ -34,7 +33,7 @@ export const useGameLogic = () => {
     }
 
     try {
-      // Get the room data to store the current image and prompt
+      // Get the room data
       const { data: roomData } = await supabase
         .from('game_rooms')
         .select()
@@ -46,11 +45,12 @@ export const useGameLogic = () => {
         return "waiting";
       }
 
-      // Get unused prompts and images (not used in previous rounds)
+      // Get unused prompts and images
       const unusedPrompts = allPrompts.filter(prompt => !gameStore.usedPrompts.includes(prompt));
       const unusedImages = allImages.filter(image => !gameStore.usedImages.includes(image));
       
-      console.log('Available items:', {
+      console.log('Available items for round:', {
+        round,
         unusedPrompts: unusedPrompts.length,
         unusedImages: unusedImages.length
       });
@@ -62,7 +62,7 @@ export const useGameLogic = () => {
         return startNewRound();
       }
 
-      // Select random prompt and corresponding image
+      // Select random prompt and image
       const randomIndex = Math.floor(Math.random() * unusedPrompts.length);
       const correctPrompt = unusedPrompts[randomIndex];
       const correctImage = unusedImages[randomIndex];
@@ -73,26 +73,23 @@ export const useGameLogic = () => {
         imageUrl: correctImage
       });
 
-      // Generate false answers using GPT-4
+      // Generate false answers
       const { data: response, error: gptError } = await supabase.functions
         .invoke('generate-false-answers', {
           body: { correctPrompt }
         });
 
-      if (gptError || !response?.alternatives || !Array.isArray(response.alternatives)) {
-        console.error('Error generating false answers:', gptError || 'Invalid response format');
-        console.log('Response received:', response);
+      if (gptError || !response?.alternatives) {
+        console.error('Error generating false answers:', gptError);
         toast.error('Error generating game options');
         return "waiting";
       }
 
-      // Combine correct answer with AI-generated false answers
+      // Combine and shuffle options
       const options = [correctPrompt, ...response.alternatives];
-      
-      // Shuffle options
       const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
-      // Update the room with the current image and options
+      // Update the room with current round data
       const { error: updateError } = await supabase
         .from('game_rooms')
         .update({
@@ -110,26 +107,21 @@ export const useGameLogic = () => {
         return "waiting";
       }
 
+      // Update game store state
+      gameStore.addUsedPrompt(correctPrompt);
+      gameStore.addUsedImage(correctImage);
+      gameStore.setRoundImage(round, correctImage);
+      gameStore.setCurrentRound(round, correctImage, shuffledOptions, correctPrompt);
+      
       console.log('Round setup complete:', {
         round,
         image: correctImage,
-        options: shuffledOptions,
-        correctPrompt
+        options: shuffledOptions
       });
-      
-      // Mark prompt and image as used
-      gameStore.addUsedPrompt(correctPrompt);
-      gameStore.addUsedImage(correctImage);
-      
-      // Store the round image
-      gameStore.setRoundImage(round, correctImage);
-      
-      // Update game store state
-      gameStore.setCurrentRound(round, correctImage, shuffledOptions, correctPrompt);
-      
+
       return "playing";
     } catch (error) {
-      console.error('Error starting new round:', error);
+      console.error('Error in startNewRound:', error);
       toast.error('Error starting new round');
       return "waiting";
     }

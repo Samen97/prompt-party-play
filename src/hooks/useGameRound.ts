@@ -15,7 +15,7 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
     setSelectedOption(null);
     setHasAnswered(false);
     setIsProcessing(false);
-  }, [imageUrl]);
+  }, [imageUrl, gameStore.currentRound]);
 
   const handleSubmit = async () => {
     if (!selectedOption || hasAnswered || isProcessing || !currentUsername) return;
@@ -70,7 +70,7 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
       onSubmitGuess(selectedOption);
       setHasAnswered(true);
 
-      // Check if all non-host players have answered
+      // Check if all players have answered
       const { data: allPlayers, error: playersError } = await supabase
         .from("game_players")
         .select("*")
@@ -86,10 +86,9 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
       const allAnswered = nonHostPlayers.every(p => p.has_answered);
 
       console.log('All players answered:', allAnswered);
-      console.log('Non-host players:', nonHostPlayers);
 
       if (allAnswered) {
-        console.log('All players have answered, updating game state');
+        console.log('All players have answered, preparing next round');
         
         // Reset all players' answer status
         const { error: resetError } = await supabase
@@ -124,7 +123,7 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
           return;
         }
 
-        // Update game store state
+        // Update game store state for next round
         gameStore.setCurrentRound(nextRound, '', [], '');
         toast.success("Moving to next round...");
       }

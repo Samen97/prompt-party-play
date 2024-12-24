@@ -28,13 +28,10 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
     console.log('GameRound rendered with:', {
       round: gameStore.currentRound,
       imageUrl: currentRoundImage,
-      hasOptions: options?.length > 0
+      hasOptions: options?.length > 0,
+      storeImage: gameStore.currentImage
     });
-
-    if (!currentRoundImage) {
-      console.log('Waiting for image for round:', gameStore.currentRound);
-    }
-  }, [currentRoundImage, options, gameStore.currentRound]);
+  }, [currentRoundImage, options, gameStore.currentRound, gameStore.currentImage]);
 
   if (!currentRoundImage || !options?.length) {
     return (
