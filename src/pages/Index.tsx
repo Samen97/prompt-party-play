@@ -1,93 +1,22 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { RoomCreation } from "@/components/game/RoomCreation";
 import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
+import { GameResults } from "@/components/game/GameResults";
 import { generateImage } from "@/services/openai";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-
-type GameState = "lobby" | "prompt-submission" | "waiting" | "playing" | "results";
+import { useGameSubscription } from "@/hooks/useGameSubscription";
+import { GameState } from "@/types/game";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("lobby");
   const gameStore = useGameStore();
 
   // Subscribe to real-time updates
-  useEffect(() => {
-    if (!gameStore.roomCode) return;
-
-    // Subscribe to game room updates
-    const roomChannel = supabase
-      .channel('room-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_rooms',
-          filter: `code=eq.${gameStore.roomCode}`,
-        },
-        (payload) => {
-          console.log('Room update:', payload);
-          if (payload.new.status === 'playing' && gameState === 'waiting') {
-            setGameState('playing');
-            startNewRound();
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to player updates
-    const playerChannel = supabase
-      .channel('player-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_players',
-          filter: `room_id=eq.${gameStore.roomCode}`,
-        },
-        (payload) => {
-          console.log('Player update:', payload);
-          // Update player scores in real-time
-          if (payload.eventType === 'UPDATE') {
-            const updatedPlayer = payload.new;
-            gameStore.updateScore(updatedPlayer.id, updatedPlayer.score);
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to prompt updates
-    const promptChannel = supabase
-      .channel('prompt-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_prompts',
-          filter: `room_id=eq.${gameStore.roomCode}`,
-        },
-        (payload) => {
-          console.log('Prompt update:', payload);
-          if (payload.eventType === 'INSERT') {
-            // Handle new prompts being added
-            toast.info('New prompts have been submitted!');
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(roomChannel);
-      supabase.removeChannel(playerChannel);
-      supabase.removeChannel(promptChannel);
-    };
-  }, [gameStore.roomCode, gameState]);
+  useGameSubscription(gameStore.roomCode, gameState, setGameState, startNewRound);
 
   const handleCreateRoom = async (username: string) => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -348,26 +277,7 @@ const Index = () => {
           </>
         )}
 
-        {gameState === "results" && (
-          <div className="space-y-6 w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-            <h2 className="text-2xl font-bold text-center">Game Over!</h2>
-            <div className="space-y-4">
-              {gameStore.players
-                .sort((a, b) => b.score - a.score)
-                .map((player, index) => (
-                  <div
-                    key={player.id}
-                    className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
-                  >
-                    <span className="font-semibold">
-                      {index + 1}. {player.username}
-                    </span>
-                    <span className="text-lg">{player.score} points</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
+        {gameState === "results" && <GameResults />}
       </div>
     </div>
   );
