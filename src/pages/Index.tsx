@@ -117,6 +117,16 @@ const Index = () => {
     }
   };
 
+  const handleSubmitGuess = (guess: string) => {
+    if (guess === gameStore.correctPrompt) {
+      const playerId = gameStore.players[gameStore.players.length - 1].id;
+      gameStore.updateScore(playerId, 100);
+      toast.success("Correct guess! +100 points");
+    } else {
+      toast.error("Wrong guess! The correct prompt was: " + gameStore.correctPrompt);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50">
       <div className="container mx-auto py-8">
@@ -160,7 +170,6 @@ const Index = () => {
         )}
 
         {gameStore.isHost && gameState !== "lobby" && <HostView />}
-
         {gameState === "results" && <GameResults />}
       </div>
     </div>
