@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 interface GameRoundProps {
-  imageUrl: string;
+  imageUrl: string;         // This prop can be ignored if you prefer to read from store
   options: string[];
   onSubmitGuess: (guess: string) => void;
 }
@@ -22,30 +22,39 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
     handleSubmit,
   } = useGameRound(imageUrl, onSubmitGuess);
 
+  // We rely on the store for the "real" image URL:
   const currentRoundImage = gameStore.getRoundImage(gameStore.currentRound);
 
   useEffect(() => {
-    console.log('GameRound rendered with:', {
+    console.log("GameRound rendered with:", {
       round: gameStore.currentRound,
       imageUrl: currentRoundImage,
       hasOptions: options?.length > 0,
-      storeImage: gameStore.currentImage
+      storeImage: gameStore.currentImage,
     });
+
+    if (!currentRoundImage) {
+      console.error("No image URL provided for round:", gameStore.currentRound);
+    }
   }, [currentRoundImage, options, gameStore.currentRound, gameStore.currentImage]);
 
+  // If we truly have no image, show a loader or fallback
   if (!currentRoundImage || !options?.length) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-lg font-medium">Loading round {gameStore.currentRound}...</p>
+        <p className="text-lg font-medium">
+          Loading round {gameStore.currentRound}...
+        </p>
       </div>
     );
   }
 
+  // Otherwise, display the actual image & options
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
       <GameProgress />
-      
+
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">What was the prompt for this image?</h2>
         <p className="text-gray-600">Select the correct prompt that was used to generate this image</p>
@@ -58,8 +67,8 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
             alt="AI Generated Image"
             className="w-full h-full object-cover"
             onError={(e) => {
-              console.error('Image failed to load:', currentRoundImage);
-              e.currentTarget.src = '/placeholder.svg';
+              console.error("Image failed to load:", currentRoundImage);
+              e.currentTarget.src = "/placeholder.svg";
             }}
           />
         </Card>
@@ -71,7 +80,7 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
             key={index}
             variant={selectedOption === option ? "default" : "outline"}
             className={`p-4 h-auto text-lg ${
-              hasAnswered ? 'cursor-not-allowed' : ''
+              hasAnswered ? "cursor-not-allowed" : ""
             }`}
             onClick={() => !hasAnswered && setSelectedOption(option)}
             disabled={hasAnswered || isProcessing}
@@ -93,7 +102,7 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
               Submitting...
             </>
           ) : (
-            'Submit Answer'
+            "Submit Answer"
           )}
         </Button>
       </div>
