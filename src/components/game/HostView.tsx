@@ -11,6 +11,11 @@ interface PlayerSubmission {
   hasSubmitted: boolean;
 }
 
+interface GamePlayer {
+  id: string;
+  username: string;
+}
+
 export const HostView = () => {
   const gameStore = useGameStore();
   const [playerSubmissions, setPlayerSubmissions] = useState<PlayerSubmission[]>([]);
@@ -30,7 +35,7 @@ export const HostView = () => {
 
       const { data: players } = await supabase
         .from('game_players')
-        .select('username')
+        .select('id, username')
         .eq('room_id', roomData.id);
 
       const { data: prompts } = await supabase
@@ -38,7 +43,7 @@ export const HostView = () => {
         .select('player_id')
         .eq('room_id', roomData.id);
 
-      const submissions = players?.map(player => ({
+      const submissions = players?.map((player: GamePlayer) => ({
         username: player.username,
         hasSubmitted: prompts?.some(prompt => prompt.player_id === player.id) || false
       })) || [];
