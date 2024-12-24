@@ -5,20 +5,25 @@ export const useGameLogic = () => {
   const gameStore = useGameStore();
 
   const startNewRound = useCallback(() => {
+    // Get current round from store
     const round = gameStore.currentRound;
-    if (round >= gameStore.totalRounds) {
-      return "results";
-    }
-
+    
+    // Check if we have any prompts and images before proceeding
     const allPrompts = gameStore.players.flatMap((p) => p.prompts);
     const allImages = gameStore.players.flatMap((p) => p.images);
     
-    // Make sure we have prompts and images
     if (allPrompts.length === 0 || allImages.length === 0) {
       console.error("No prompts or images available");
+      return "waiting";
+    }
+
+    // Only end game if we've completed all rounds
+    if (round >= gameStore.totalRounds) {
+      console.log("Game over - all rounds completed");
       return "results";
     }
 
+    // Select random image and prompt for this round
     const randomIndex = Math.floor(Math.random() * allImages.length);
     const correctImage = allImages[randomIndex];
     const correctPrompt = allPrompts[randomIndex];
@@ -40,8 +45,11 @@ export const useGameLogic = () => {
       options.push(correctPrompt);
     }
 
+    // Shuffle options and update game state
     const shuffledOptions = options.sort(() => Math.random() - 0.5);
+    console.log(`Starting round ${round + 1} of ${gameStore.totalRounds}`);
     gameStore.setCurrentRound(round + 1, correctImage, shuffledOptions, correctPrompt);
+    
     return "playing";
   }, [gameStore]);
 
