@@ -43,17 +43,27 @@ export const useGameSubscription = (
           async (payload) => {
             console.log("Room update received:", payload);
             const newRoom = payload.new as GameRoom;
-            if (newRoom.status === "playing") {
+
+            // Update game store with current round info
+            if (newRoom.current_round !== null) {
               gameStore.setCurrentRound(
-                newRoom.current_round ?? 1,
+                newRoom.current_round,
                 newRoom.current_image ?? "",
                 newRoom.current_options ?? [],
                 newRoom.correct_prompt ?? ""
               );
+            }
 
-              if (gameState === "waiting") {
-                console.log("Game starting - transitioning to playing state");
-                setGameState("playing");
+            // Handle game state transitions
+            if (newRoom.status === "playing") {
+              console.log("Game starting - transitioning to playing state");
+              
+              // Set game state to playing for all players
+              setGameState("playing");
+              
+              // Only start new round if we're the host
+              if (gameStore.isHost) {
+                console.log("Host starting new round");
                 const newState = await startNewRound();
                 if (newState !== gameState) {
                   setGameState(newState);
