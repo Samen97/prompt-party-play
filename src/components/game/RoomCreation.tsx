@@ -16,12 +16,18 @@ export const RoomCreation = ({ onCreateRoom, onJoinRoom }: RoomCreationProps) =>
   const [testImages, setTestImages] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const generateRandomUsername = () => {
+    const adjectives = ['Happy', 'Lucky', 'Clever', 'Bright', 'Swift'];
+    const nouns = ['Panda', 'Tiger', 'Dragon', 'Phoenix', 'Unicorn'];
+    const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+    const randomNumber = Math.floor(Math.random() * 1000);
+    return `${randomAdjective}${randomNoun}${randomNumber}`;
+  };
+
   const handleCreateRoom = () => {
-    if (!username.trim()) {
-      toast.error("Please enter a username");
-      return;
-    }
-    onCreateRoom(username);
+    const generatedUsername = generateRandomUsername();
+    onCreateRoom(generatedUsername);
   };
 
   const handleJoinRoom = () => {
@@ -65,15 +71,14 @@ export const RoomCreation = ({ onCreateRoom, onJoinRoom }: RoomCreationProps) =>
       </div>
 
       <div className="space-y-4">
-        <Input
-          placeholder="Enter your username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="w-full"
-        />
-
         {isJoining ? (
           <>
+            <Input
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full"
+            />
             <Input
               placeholder="Enter room code"
               value={roomCode}
