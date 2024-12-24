@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useGameStore } from "@/store/gameStore";
 
 interface PromptSubmissionProps {
   onSubmitPrompts: (prompts: string[]) => void;
@@ -13,6 +14,21 @@ export const PromptSubmission = ({
   requiredPrompts = 2,
 }: PromptSubmissionProps) => {
   const [prompts, setPrompts] = useState<string[]>([""]);
+  const gameStore = useGameStore();
+
+  // If user is host, don't show the prompt submission form
+  if (gameStore.isHost) {
+    return (
+      <div className="space-y-6 w-full max-w-md mx-auto p-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-center">Waiting for Players</h2>
+          <p className="text-center text-gray-600">
+            As the host, you'll wait for other players to submit their prompts
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleAddPrompt = () => {
     if (prompts.length < requiredPrompts) {
