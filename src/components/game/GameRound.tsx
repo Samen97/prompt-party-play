@@ -8,14 +8,12 @@ interface GameRoundProps {
   imageUrl: string;
   options: string[];
   onSubmitGuess: (guess: string) => void;
-  timeLeft?: number;
 }
 
 export const GameRound = ({
   imageUrl,
   options,
   onSubmitGuess,
-  timeLeft,
 }: GameRoundProps) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
@@ -43,7 +41,11 @@ export const GameRound = ({
           .select()
           .eq('room_id', roomData.id);
 
-        if (playersData && playersData.every(player => player.has_answered)) {
+        const nonHostPlayers = playersData?.filter(player => 
+          player.username !== gameStore.hostUsername
+        );
+
+        if (nonHostPlayers && nonHostPlayers.every(player => player.has_answered)) {
           // Reset all players' has_answered status
           await supabase
             .from('game_players')
@@ -59,7 +61,7 @@ export const GameRound = ({
     };
 
     checkAllPlayersAnswered();
-  }, [hasAnswered, gameStore.roomCode, gameStore.isHost, selectedOption, onSubmitGuess]);
+  }, [hasAnswered, gameStore.roomCode, gameStore.isHost, gameStore.hostUsername, selectedOption, onSubmitGuess]);
 
   const handleSubmit = async () => {
     if (!selectedOption || hasAnswered) return;
@@ -92,11 +94,8 @@ export const GameRound = ({
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-center">Which prompt created this image?</h2>
-        {timeLeft !== undefined && (
-          <p className="text-center text-gray-600">Time left: {timeLeft}s</p>
-        )}
+      <div className="text-center">
+        <h2 className="text-2xl font-bold">Which prompt created this image?</h2>
       </div>
 
       <div className="aspect-square w-full max-w-2xl mx-auto">

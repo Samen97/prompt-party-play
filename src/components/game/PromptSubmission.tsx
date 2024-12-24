@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useGameStore } from "@/store/gameStore";
+import { Loader2 } from "lucide-react";
 
 interface PromptSubmissionProps {
   onSubmitPrompts: (prompts: string[]) => void;
@@ -11,6 +12,7 @@ interface PromptSubmissionProps {
 export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => {
   const gameStore = useGameStore();
   const [prompts, setPrompts] = useState<string[]>(['']);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const promptsRequired = 2; // Each player submits 2 prompts
 
   const handleAddPrompt = () => {
@@ -27,9 +29,20 @@ export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => 
 
   const handleSubmit = () => {
     if (prompts.every(prompt => prompt.trim())) {
+      setIsSubmitting(true);
       onSubmitPrompts(prompts);
     }
   };
+
+  if (isSubmitting) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-4 p-6">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-lg font-medium">Generating your images...</p>
+        <p className="text-sm text-gray-500">Please wait while we process your prompts</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">

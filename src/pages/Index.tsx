@@ -166,7 +166,6 @@ const Index = () => {
                 imageUrl={gameStore.currentImage}
                 options={gameStore.options}
                 onSubmitGuess={handleSubmitGuess}
-                timeLeft={30}
               />
             )}
           </>
