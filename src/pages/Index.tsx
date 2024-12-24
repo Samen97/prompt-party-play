@@ -5,6 +5,7 @@ import { GameRound } from "@/components/game/GameRound";
 import { generateImage } from "@/services/openai";
 import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 type GameState = "lobby" | "prompt-submission" | "playing" | "results";
 
@@ -17,7 +18,7 @@ const Index = () => {
     gameStore.setRoomCode(roomCode);
     gameStore.setHost(username);
     gameStore.addPlayer(username);
-    setGameState("lobby");
+    setGameState("prompt-submission");
     toast.success(`Room created! Share this code with players: ${roomCode}`);
   };
 
@@ -38,12 +39,21 @@ const Index = () => {
       const playerId = gameStore.players[gameStore.players.length - 1].id;
       gameStore.updatePlayerPrompts(playerId, prompts, images);
       
-      setGameState("playing");
-      toast.success("Images generated successfully!");
+      if (gameStore.isHost) {
+        toast.success("Images generated! Waiting for other players...");
+      } else {
+        setGameState("waiting");
+        toast.success("Images generated successfully! Waiting for host to start the game.");
+      }
     } catch (error) {
       console.error('Image generation error:', error);
       toast.error("Error generating images. Please try again.");
     }
+  };
+
+  const startGame = () => {
+    setGameState("playing");
+    startNewRound();
   };
 
   const startNewRound = useCallback(() => {
@@ -106,11 +116,30 @@ const Index = () => {
           />
         )}
 
-        {gameState === "prompt-submission" && !gameStore.isHost && (
-          <PromptSubmission onSubmitPrompts={handleSubmitPrompts} />
+        {gameState === "prompt-submission" && (
+          <>
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-bold">
+                {gameStore.isHost ? "Host View" : "Player View"}
+              </h3>
+              <p className="text-gray-600">
+                {gameStore.isHost
+                  ? "Submit your prompts and wait for other players"
+                  : "Submit your prompts"}
+              </p>
+            </div>
+            <PromptSubmission onSubmitPrompts={handleSubmitPrompts} />
+            {gameStore.isHost && gameStore.players.length > 1 && (
+              <div className="mt-6 text-center">
+                <Button onClick={startGame} className="bg-green-500 hover:bg-green-600">
+                  Start Game
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
-        {gameState === "playing" && !gameStore.isHost && (
+        {gameState === "playing" && (
           <>
             <div className="mb-4">
               <h3 className="text-xl font-bold text-center mb-2">
