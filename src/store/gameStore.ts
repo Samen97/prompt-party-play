@@ -24,6 +24,7 @@ interface GameState {
   updatePlayerPrompts: (playerId: string, prompts: string[], images: string[]) => void;
   updateScore: (playerId: string, points: number) => void;
   setCurrentRound: (round: number, image: string, options: string[], correctPrompt: string) => void;
+  addPrompt: (prompt: string, imageUrl: string) => void;
   reset: () => void;
 }
 
@@ -76,6 +77,24 @@ export const useGameStore = create<GameState>((set) => ({
       currentImage: image,
       options,
       correctPrompt,
+    }),
+
+  addPrompt: (prompt, imageUrl) =>
+    set((state) => {
+      const lastPlayer = state.players[state.players.length - 1];
+      if (!lastPlayer) return state;
+
+      return {
+        players: state.players.map((player) =>
+          player.id === lastPlayer.id
+            ? {
+                ...player,
+                prompts: [...player.prompts, prompt],
+                images: [...player.images, imageUrl],
+              }
+            : player
+        ),
+      };
     }),
 
   reset: () =>
