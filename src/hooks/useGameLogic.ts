@@ -48,10 +48,10 @@ export const useGameLogic = () => {
     );
 
     if (unusedPairs.length === 0) {
-      // If none left, reset used arrays so we can re-use them (optional)
+      // If none left, reset used arrays so we can re-use them
       console.log("[useGameLogic] No unused pairs left, resetting used arrays...");
       gameStore.resetUsedItems();
-      return startNewRound(); // re-call
+      return startNewRound(); // re-call after reset
     }
 
     try {
@@ -82,12 +82,12 @@ export const useGameLogic = () => {
         .select("*")
         .eq("code", gameStore.roomCode)
         .single();
+
       if (!roomData) {
         console.error("[useGameLogic] Could not find game_room for code:", gameStore.roomCode);
         return "waiting";
       }
 
-      // Mark status as "playing" and store the new round's data
       const { error: updateError } = await supabase
         .from("game_rooms")
         .update({
