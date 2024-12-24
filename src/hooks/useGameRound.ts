@@ -46,16 +46,9 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
         .eq("username", currentUsername)
         .maybeSingle();
 
-      if (playerError) {
+      if (playerError || !playerData) {
         console.error("Player error:", playerError);
         toast.error("Error finding player record");
-        setIsProcessing(false);
-        return;
-      }
-
-      if (!playerData) {
-        console.error("No player found for username:", currentUsername);
-        toast.error("Player record not found");
         setIsProcessing(false);
         return;
       }
@@ -99,14 +92,21 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
         console.log('All players have answered, updating game state');
         
         // Reset all players' answer status
-        await supabase
+        const { error: resetError } = await supabase
           .from("game_players")
           .update({ has_answered: false })
           .eq("room_id", roomData.id);
 
+        if (resetError) {
+          console.error("Error resetting player answers:", resetError);
+          toast.error("Error preparing for next round");
+          setIsProcessing(false);
+          return;
+        }
+
         // Update room to next round
-        const nextRound = (roomData.current_round || 0) + 1;
-        await supabase
+        const nextRound = roomData.current_round + 1;
+        const { error: roomUpdateError } = await supabase
           .from("game_rooms")
           .update({
             current_round: nextRound,
@@ -116,6 +116,14 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
           })
           .eq("id", roomData.id);
 
+        if (roomUpdateError) {
+          console.error("Error updating room:", roomUpdateError);
+          toast.error("Error moving to next round");
+          setIsProcessing(false);
+          return;
+        }
+
+        gameStore.setCurrentRound(nextRound, '', [], '');
         toast.success("Moving to next round...");
       }
     } catch (error) {
