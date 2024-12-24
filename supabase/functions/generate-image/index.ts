@@ -57,8 +57,8 @@ serve(async (req) => {
     const enhancedPrompt = gptData.choices[0].message.content;
     console.log('Enhanced prompt:', enhancedPrompt);
 
-    // 2) Generate the image with DALL-E
-    console.log('Generating image with DALL-E...');
+    // 2) Generate the image with DALL-E 2
+    console.log('Generating image with DALL-E 2...');
     const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -66,11 +66,10 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "dall-e-3",
+        model: "dall-e-2",
         prompt: `${enhancedPrompt}. Make it look exactly like a child's crayon drawing, with simple shapes and bright colors.`,
         n: 1,
         size: "1024x1024",
-        style: "natural"
       }),
     });
 
