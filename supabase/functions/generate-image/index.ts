@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -17,44 +18,11 @@ serve(async (req) => {
     const { prompt } = await req.json();
     console.log('Received prompt:', prompt);
 
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key is not configured');
-    }
-
-    // First, enhance the prompt with GPT-4
-    const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert at creating prompts for generating children\'s drawings. Take the input and enhance it to create a more detailed prompt that will result in an image that looks like it was drawn by a 5-year-old child. Add details about using crayons, simple shapes, and bright colors.'
-          },
-          {
-            role: 'user',
-            content: `Create a child-like drawing prompt for: ${prompt}`
-          }
-        ],
-      }),
-    });
-
-    if (!gptResponse.ok) {
-      const error = await gptResponse.json();
-      console.error('GPT API error:', error);
-      throw new Error(`GPT API error: ${error.error?.message || 'Unknown error'}`);
-    }
-
-    const gptData = await gptResponse.json();
-    const enhancedPrompt = gptData.choices[0].message.content;
+    // Sanitize and enhance the prompt to be more child-friendly and safe
+    const enhancedPrompt = `A child's crayon drawing of ${prompt}. Make it colorful, simple, and suitable for all ages, using a child-like art style.`;
     console.log('Enhanced prompt:', enhancedPrompt);
 
-    // Generate image with the enhanced prompt
-    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
@@ -62,28 +30,24 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: `${enhancedPrompt}. Make it look exactly like a child's crayon drawing, with simple shapes and bright colors.`,
+        prompt: enhancedPrompt,
         n: 1,
         size: "1024x1024",
         style: "natural"
       }),
     });
 
-    if (!imageResponse.ok) {
-      const error = await imageResponse.json();
+    if (!response.ok) {
+      const error = await response.json();
       console.error('DALL-E API error:', error);
       throw new Error(`DALL-E API error: ${error.error?.message || 'Unknown error'}`);
     }
 
-    const imageData = await imageResponse.json();
-    console.log('Image generation response:', imageData);
-    
-    if (!imageData.data?.[0]?.url) {
-      throw new Error('No image URL returned from the API');
-    }
+    const data = await response.json();
+    console.log('Successfully generated image');
 
     return new Response(
-      JSON.stringify({ imageUrl: imageData.data[0].url }),
+      JSON.stringify({ imageUrl: data.data[0].url }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
