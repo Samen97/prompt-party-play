@@ -15,8 +15,10 @@ export const useGameSubscription = (
   useEffect(() => {
     if (!roomCode) return;
 
+    console.log('Setting up realtime subscriptions for room:', roomCode);
+
     const roomChannel = supabase
-      .channel('room-updates')
+      .channel(`room-${roomCode}`)
       .on(
         'postgres_changes',
         {
@@ -26,7 +28,7 @@ export const useGameSubscription = (
           filter: `code=eq.${roomCode}`,
         },
         (payload) => {
-          console.log('Room update:', payload);
+          console.log('Room update received:', payload);
           const newRoom = payload.new as GameRoom;
           if (newRoom?.status === 'playing' && gameState === 'waiting') {
             setGameState('playing');
@@ -37,10 +39,12 @@ export const useGameSubscription = (
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Room channel status: ${status}`);
+      });
 
     const playerChannel = supabase
-      .channel('player-updates')
+      .channel(`players-${roomCode}`)
       .on(
         'postgres_changes',
         {
@@ -50,17 +54,23 @@ export const useGameSubscription = (
           filter: `room_id=eq.${roomCode}`,
         },
         (payload) => {
-          console.log('Player update:', payload);
-          if (payload.eventType === 'UPDATE' && payload.new) {
+          console.log('Player update received:', payload);
+          if (payload.eventType === 'INSERT') {
+            const newPlayer = payload.new;
+            gameStore.addPlayer(newPlayer.username);
+            toast.success(`${newPlayer.username} joined the game!`);
+          } else if (payload.eventType === 'UPDATE') {
             const updatedPlayer = payload.new;
             gameStore.updateScore(updatedPlayer.id, updatedPlayer.score);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Player channel status: ${status}`);
+      });
 
     const promptChannel = supabase
-      .channel('prompt-updates')
+      .channel(`prompts-${roomCode}`)
       .on(
         'postgres_changes',
         {
@@ -70,15 +80,23 @@ export const useGameSubscription = (
           filter: `room_id=eq.${roomCode}`,
         },
         (payload) => {
-          console.log('Prompt update:', payload);
+          console.log('Prompt update received:', payload);
           if (payload.eventType === 'INSERT') {
-            toast.info('New prompts have been submitted!');
+            const newPrompt = payload.new;
+            toast.info(`New prompt submitted by a player!`);
+            // Update the game store with the new prompt
+            if (newPrompt.image_url) {
+              gameStore.addPrompt(newPrompt.prompt, newPrompt.image_url);
+            }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Prompt channel status: ${status}`);
+      });
 
     return () => {
+      console.log('Cleaning up realtime subscriptions');
       supabase.removeChannel(roomChannel);
       supabase.removeChannel(playerChannel);
       supabase.removeChannel(promptChannel);
