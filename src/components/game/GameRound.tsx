@@ -58,7 +58,7 @@ export const GameRound = ({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
-            <p className="text-gray-500">Image not available</p>
+            <p className="text-gray-500">Loading image...</p>
           </div>
         )}
       </div>

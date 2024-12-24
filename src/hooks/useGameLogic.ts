@@ -120,6 +120,8 @@ export const useGameLogic = () => {
       // Mark prompt and image as used
       gameStore.addUsedPrompt(correctPrompt);
       gameStore.addUsedImage(correctImage);
+      
+      // Update game store state
       gameStore.setCurrentRound(round, correctImage, shuffledOptions, correctPrompt);
       
       return "playing";
