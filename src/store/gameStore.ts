@@ -31,7 +31,10 @@ interface GameState {
 export const useGameStore = create<GameState>((set) => ({
   players: [],
   currentRound: 0,
-  totalRounds: 3, // Reduced number of rounds for testing
+  // Calculate total rounds based on number of players * 2
+  get totalRounds() {
+    return this.players.length * 2;
+  },
   currentImage: '',
   options: [],
   correctPrompt: '',

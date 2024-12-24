@@ -1,37 +1,21 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
 import { useGameStore } from "@/store/gameStore";
 
 interface PromptSubmissionProps {
   onSubmitPrompts: (prompts: string[]) => void;
-  requiredPrompts?: number;
 }
 
-export const PromptSubmission = ({
-  onSubmitPrompts,
-  requiredPrompts = 2,
-}: PromptSubmissionProps) => {
-  const [prompts, setPrompts] = useState<string[]>([""]);
+export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => {
   const gameStore = useGameStore();
-
-  if (gameStore.isHost) {
-    return (
-      <div className="space-y-6 w-full max-w-md mx-auto p-6">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-center">Waiting for Players</h2>
-          <p className="text-center text-gray-600">
-            As the host, you'll wait for other players to submit their prompts
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const [prompts, setPrompts] = useState<string[]>(['']);
+  const promptsRequired = 2; // Each player submits 2 prompts
 
   const handleAddPrompt = () => {
-    if (prompts.length < requiredPrompts) {
-      setPrompts([...prompts, ""]);
+    if (prompts.length < promptsRequired) {
+      setPrompts([...prompts, '']);
     }
   };
 
@@ -42,78 +26,55 @@ export const PromptSubmission = ({
   };
 
   const handleSubmit = () => {
-    if (prompts.length < requiredPrompts) {
-      toast.error(`Please enter ${requiredPrompts} prompts`);
-      return;
+    if (prompts.every(prompt => prompt.trim())) {
+      onSubmitPrompts(prompts);
     }
-
-    if (prompts.some((prompt) => !prompt.trim())) {
-      toast.error("Please fill in all prompts");
-      return;
-    }
-
-    if (prompts.some(prompt => prompt.trim().length < 3)) {
-      toast.error("Each prompt must be at least 3 characters long");
-      return;
-    }
-
-    // Add "A child's drawing of" prefix when submitting
-    const formattedPrompts = prompts.map(prompt => 
-      `A child's drawing of ${prompt.trim()}`
-    );
-
-    onSubmitPrompts(formattedPrompts);
   };
 
   return (
-    <div className="space-y-6 w-full max-w-md mx-auto p-6">
+    <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-center">Enter Your Prompts</h2>
+        <h2 className="text-2xl font-bold text-center">Submit Your Drawing Prompts</h2>
         <p className="text-center text-gray-600">
-          Create {requiredPrompts} unique prompts for AI image generation
-        </p>
-        <p className="text-center text-sm text-gray-500">
-          All prompts will start with "A child's drawing of". Be creative and descriptive!
+          Enter {promptsRequired} prompts for drawings that will be created by AI
         </p>
       </div>
 
-      <div className="space-y-4">
-        {prompts.map((prompt, index) => (
-          <div key={index} className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500 w-6">{index + 1}.</span>
+      <Card className="p-6">
+        <div className="space-y-4">
+          {prompts.map((prompt, index) => (
+            <div key={index} className="space-y-2">
+              <label className="text-sm font-medium">
+                Prompt {index + 1} of {promptsRequired}
+              </label>
               <Input
                 value={prompt}
                 onChange={(e) => handlePromptChange(index, e.target.value)}
-                placeholder="Enter a detailed description..."
-                className="flex-1"
+                placeholder="Enter a drawing prompt..."
+                className="w-full"
               />
             </div>
-            <p className="text-xs text-gray-500 ml-8">
-              Example: "a happy dinosaur playing with a red ball in a sunny park"
-            </p>
-          </div>
-        ))}
+          ))}
 
-        {prompts.length < requiredPrompts && (
-          <Button
-            onClick={handleAddPrompt}
-            variant="outline"
-            className="w-full"
-          >
-            Add Prompt ({prompts.length}/{requiredPrompts})
-          </Button>
-        )}
+          {prompts.length < promptsRequired && (
+            <Button
+              onClick={handleAddPrompt}
+              variant="outline"
+              className="w-full"
+            >
+              Add Another Prompt
+            </Button>
+          )}
 
-        {prompts.length === requiredPrompts && (
           <Button
             onClick={handleSubmit}
+            disabled={!prompts.every(prompt => prompt.trim()) || prompts.length < promptsRequired}
             className="w-full bg-primary hover:bg-primary/90"
           >
             Submit Prompts
           </Button>
-        )}
-      </div>
+        </div>
+      </Card>
     </div>
   );
 };
