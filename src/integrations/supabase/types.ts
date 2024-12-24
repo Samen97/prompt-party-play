@@ -52,6 +52,8 @@ export type Database = {
           player_id: string | null
           prompt: string
           room_id: string | null
+          round_number: number | null
+          used_in_round: number | null
         }
         Insert: {
           created_at?: string | null
@@ -60,6 +62,8 @@ export type Database = {
           player_id?: string | null
           prompt: string
           room_id?: string | null
+          round_number?: number | null
+          used_in_round?: number | null
         }
         Update: {
           created_at?: string | null
@@ -68,6 +72,8 @@ export type Database = {
           player_id?: string | null
           prompt?: string
           room_id?: string | null
+          round_number?: number | null
+          used_in_round?: number | null
         }
         Relationships: [
           {

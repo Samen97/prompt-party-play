@@ -41,7 +41,8 @@ export const HostView = () => {
       const { data: prompts } = await supabase
         .from('game_prompts')
         .select('player_id')
-        .eq('room_id', roomData.id);
+        .eq('room_id', roomData.id)
+        .is('round_number', null);
 
       const submissions = players?.map((player: GamePlayer) => ({
         username: player.username,
@@ -103,6 +104,27 @@ export const HostView = () => {
       .select()
       .eq('code', gameStore.roomCode)
       .single();
+
+    if (!roomData) {
+      toast.error('Room not found');
+      return;
+    }
+
+    // Assign round numbers to prompts
+    const { data: prompts } = await supabase
+      .from('game_prompts')
+      .select()
+      .eq('room_id', roomData.id)
+      .is('round_number', null);
+
+    if (prompts) {
+      for (let i = 0; i < prompts.length; i++) {
+        await supabase
+          .from('game_prompts')
+          .update({ round_number: i + 1 })
+          .eq('id', prompts[i].id);
+      }
+    }
 
     const { error: updateError } = await supabase
       .from('game_rooms')
