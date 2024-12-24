@@ -1,5 +1,3 @@
-// /src/hooks/useGameLogic.ts
-
 import { useCallback } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,24 +23,34 @@ export const useGameLogic = () => {
 
     try {
       // Get the room data
-      const { data: roomData } = await supabase
+      const { data: roomData, error: roomError } = await supabase
         .from("game_rooms")
         .select()
         .eq("code", gameStore.roomCode)
         .single();
 
-      if (!roomData) {
+      if (roomError || !roomData) {
+        console.error("[useGameLogic] Room error:", roomError);
         throw new Error("Room not found");
       }
 
       // Get prompts that haven't been used in any round yet
-      const { data: availablePrompts } = await supabase
+      const { data: availablePrompts, error: promptError } = await supabase
         .from("game_prompts")
         .select("id, prompt, image_url")
         .eq("room_id", roomData.id)
         .is("used_in_round", null);
 
-      console.log("[useGameLogic] Available prompts:", availablePrompts?.length);
+      console.log("[useGameLogic] Available unused prompts:", {
+        count: availablePrompts?.length,
+        prompts: availablePrompts
+      });
+
+      if (promptError) {
+        console.error("[useGameLogic] Error fetching prompts:", promptError);
+        toast.error("Failed to fetch prompts");
+        return "waiting";
+      }
 
       if (!availablePrompts?.length) {
         console.error("[useGameLogic] No unused prompts available!");
@@ -55,6 +63,7 @@ export const useGameLogic = () => {
       const selectedPrompt = availablePrompts[randomIndex];
       
       console.log("[useGameLogic] Selected prompt for round", round, {
+        promptId: selectedPrompt.id,
         prompt: selectedPrompt.prompt,
         image: selectedPrompt.image_url
       });
@@ -87,6 +96,11 @@ export const useGameLogic = () => {
         return "waiting";
       }
 
+      console.log("[useGameLogic] Marked prompt as used:", {
+        promptId: selectedPrompt.id,
+        round: round
+      });
+
       // Update game room with new round data
       const { error: updateError } = await supabase
         .from("game_rooms")
@@ -104,6 +118,12 @@ export const useGameLogic = () => {
         toast.error("Error starting new round");
         return "waiting";
       }
+
+      console.log("[useGameLogic] Updated game room for round", round, {
+        image: selectedPrompt.image_url,
+        options: shuffledOptions,
+        correctPrompt: selectedPrompt.prompt
+      });
 
       // Update store
       gameStore.addUsedPrompt(selectedPrompt.prompt);
