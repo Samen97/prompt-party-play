@@ -56,6 +56,16 @@ export const HostView = () => {
         const totalRounds = submissions.length * 2; // Each player contributes 2 prompts
         gameStore.setTotalRounds(totalRounds);
       }
+
+      // Update game store with current game state
+      if (roomData.current_image && roomData.current_options && roomData.correct_prompt) {
+        gameStore.setCurrentRound(
+          roomData.current_round,
+          roomData.current_image,
+          roomData.current_options,
+          roomData.correct_prompt
+        );
+      }
     };
 
     // Initial fetch
@@ -69,7 +79,7 @@ export const HostView = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'game_prompts',
+          table: 'game_rooms',
         },
         () => {
           fetchSubmissions();

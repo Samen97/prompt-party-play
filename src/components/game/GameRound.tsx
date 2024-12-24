@@ -59,8 +59,8 @@ export const GameRound = ({
           .select('id', { count: 'exact' })
           .eq('room_id', roomData.id);
 
-        // If there's only one player or if host, proceed to next round immediately
-        if (playersCount?.length === 1 || gameStore.isHost) {
+        // If there's only one player or if all players have answered, proceed to next round
+        if (playersCount?.length === 1) {
           // Reset all players' has_answered status
           await supabase
             .from('game_players')
@@ -78,6 +78,8 @@ export const GameRound = ({
               correct_prompt: null
             })
             .eq('id', roomData.id);
+
+          toast.success('Moving to next round...');
         }
       }
     }
