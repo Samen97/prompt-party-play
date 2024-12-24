@@ -7,7 +7,7 @@ import { useGameStore } from "@/store/gameStore";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-type GameState = "lobby" | "prompt-submission" | "playing" | "results";
+type GameState = "lobby" | "prompt-submission" | "waiting" | "playing" | "results";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("lobby");
@@ -137,6 +137,15 @@ const Index = () => {
               </div>
             )}
           </>
+        )}
+
+        {gameState === "waiting" && (
+          <div className="text-center p-6">
+            <h3 className="text-xl font-bold mb-2">Waiting for Host</h3>
+            <p className="text-gray-600">
+              Your prompts have been submitted. Please wait for the host to start the game.
+            </p>
+          </div>
         )}
 
         {gameState === "playing" && (
