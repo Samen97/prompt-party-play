@@ -34,6 +34,17 @@ export const useGameLogic = () => {
         throw new Error("Room not found");
       }
 
+      // Debug: Log all prompts for this room to see what's used/unused
+      const { data: allPrompts } = await supabase
+        .from("game_prompts")
+        .select("id, prompt, image_url, used_in_round")
+        .eq("room_id", roomData.id);
+
+      console.log("[useGameLogic] ALL prompts in room:", {
+        roomId: roomData.id,
+        prompts: allPrompts
+      });
+
       // Get prompts that haven't been used in any round yet
       const { data: availablePrompts, error: promptError } = await supabase
         .from("game_prompts")
@@ -41,9 +52,10 @@ export const useGameLogic = () => {
         .eq("room_id", roomData.id)
         .is("used_in_round", null);
 
-      console.log("[useGameLogic] Available unused prompts:", {
+      console.log("[useGameLogic] Available UNUSED prompts:", {
         count: availablePrompts?.length,
-        prompts: availablePrompts
+        prompts: availablePrompts,
+        currentRound: round
       });
 
       if (promptError) {
@@ -100,6 +112,15 @@ export const useGameLogic = () => {
         promptId: selectedPrompt.id,
         round: round
       });
+
+      // Verify the update was successful
+      const { data: verifyPrompt } = await supabase
+        .from("game_prompts")
+        .select("id, prompt, used_in_round")
+        .eq("id", selectedPrompt.id)
+        .single();
+
+      console.log("[useGameLogic] Verification of prompt update:", verifyPrompt);
 
       // Update game room with new round data
       const { error: updateError } = await supabase
