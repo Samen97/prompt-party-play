@@ -38,13 +38,21 @@ export const useGameLogic = () => {
         return "waiting";
       }
 
-      // Select random image and prompt for this round
-      const unusedPrompts = allPrompts.filter(prompt => prompt !== gameStore.correctPrompt);
-      const unusedImages = allImages.filter(image => image !== gameStore.currentImage);
+      // Get unused prompts and images (not used in previous rounds)
+      const unusedPrompts = allPrompts.filter(prompt => !gameStore.usedPrompts.includes(prompt));
+      const unusedImages = allImages.filter(image => !gameStore.usedImages.includes(image));
       
+      // If we've used all prompts/images, reset the arrays
+      if (unusedPrompts.length === 0 || unusedImages.length === 0) {
+        console.log("Resetting used prompts and images");
+        gameStore.resetUsedItems();
+        return startNewRound();
+      }
+
+      // Select random prompt and corresponding image
       const randomIndex = Math.floor(Math.random() * unusedPrompts.length);
-      const correctImage = unusedImages[randomIndex];
       const correctPrompt = unusedPrompts[randomIndex];
+      const correctImage = unusedImages[randomIndex];
 
       console.log('Generating false answers for prompt:', correctPrompt);
 
@@ -83,6 +91,10 @@ export const useGameLogic = () => {
         .eq('id', roomData.id);
 
       console.log(`Starting round ${round} of ${gameStore.totalRounds}`);
+      
+      // Mark prompt and image as used
+      gameStore.addUsedPrompt(correctPrompt);
+      gameStore.addUsedImage(correctImage);
       gameStore.setCurrentRound(round, correctImage, shuffledOptions, correctPrompt);
       
       return "playing";

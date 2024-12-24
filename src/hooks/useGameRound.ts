@@ -123,6 +123,7 @@ export const useGameRound = (imageUrl: string, onSubmitGuess: (guess: string) =>
           return;
         }
 
+        // Update game store state
         gameStore.setCurrentRound(nextRound, '', [], '');
         toast.success("Moving to next round...");
       }

@@ -18,6 +18,8 @@ interface GameState {
   roomCode: string;
   hostUsername: string | null;
   isHost: boolean;
+  usedPrompts: string[];
+  usedImages: string[];
   addPlayer: (username: string) => void;
   setRoomCode: (code: string) => void;
   setHost: (username: string) => void;
@@ -26,10 +28,13 @@ interface GameState {
   setCurrentRound: (round: number, image: string, options: string[], correctPrompt: string) => void;
   setTotalRounds: (rounds: number) => void;
   addPrompt: (prompt: string, imageUrl: string) => void;
+  addUsedPrompt: (prompt: string) => void;
+  addUsedImage: (image: string) => void;
+  resetUsedItems: () => void;
   reset: () => void;
 }
 
-export const useGameStore = create<GameState>((set, get) => ({
+export const useGameStore = create<GameState>((set) => ({
   players: [],
   currentRound: 1,
   totalRounds: 0,
@@ -39,6 +44,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   roomCode: '',
   hostUsername: null,
   isHost: false,
+  usedPrompts: [],
+  usedImages: [],
 
   addPlayer: (username) =>
     set((state) => {
@@ -52,7 +59,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           images: [],
         },
       ];
-      // Calculate total rounds based on number of prompts per player (2) * number of players
       const totalRounds = newPlayers.length * 2;
       return {
         players: newPlayers,
@@ -106,6 +112,22 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
+  addUsedPrompt: (prompt) =>
+    set((state) => ({
+      usedPrompts: [...state.usedPrompts, prompt],
+    })),
+
+  addUsedImage: (image) =>
+    set((state) => ({
+      usedImages: [...state.usedImages, image],
+    })),
+
+  resetUsedItems: () =>
+    set({
+      usedPrompts: [],
+      usedImages: [],
+    }),
+
   reset: () =>
     set({
       players: [],
@@ -117,5 +139,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       roomCode: '',
       hostUsername: null,
       isHost: false,
+      usedPrompts: [],
+      usedImages: [],
     }),
 }));
