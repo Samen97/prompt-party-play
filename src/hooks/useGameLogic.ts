@@ -35,10 +35,10 @@ export const useGameLogic = () => {
         throw new Error("Room not found");
       }
 
-      // Get unused prompts for this room that haven't been used in a round yet
+      // Get prompts that haven't been used in any round yet
       const { data: availablePrompts } = await supabase
         .from("game_prompts")
-        .select("prompt, image_url")
+        .select("id, prompt, image_url")
         .eq("room_id", roomData.id)
         .is("used_in_round", null);
 
@@ -75,6 +75,18 @@ export const useGameLogic = () => {
       const options = [selectedPrompt.prompt, ...response.alternatives];
       const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
+      // Mark this prompt as used in this round
+      const { error: updatePromptError } = await supabase
+        .from("game_prompts")
+        .update({ used_in_round: round })
+        .eq("id", selectedPrompt.id);
+
+      if (updatePromptError) {
+        console.error("[useGameLogic] Error marking prompt as used:", updatePromptError);
+        toast.error("Error updating prompt status");
+        return "waiting";
+      }
+
       // Update game room with new round data
       const { error: updateError } = await supabase
         .from("game_rooms")
@@ -92,13 +104,6 @@ export const useGameLogic = () => {
         toast.error("Error starting new round");
         return "waiting";
       }
-
-      // Mark prompt as used in this round
-      await supabase
-        .from("game_prompts")
-        .update({ used_in_round: round })
-        .eq("room_id", roomData.id)
-        .eq("prompt", selectedPrompt.prompt);
 
       // Update store
       gameStore.addUsedPrompt(selectedPrompt.prompt);
