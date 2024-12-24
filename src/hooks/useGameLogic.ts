@@ -42,7 +42,11 @@ export const useGameLogic = () => {
 
       console.log("[useGameLogic] ALL prompts in room:", {
         roomId: roomData.id,
-        prompts: allPrompts
+        prompts: allPrompts?.map(p => ({
+          id: p.id,
+          prompt: p.prompt,
+          used_in_round: p.used_in_round
+        }))
       });
 
       // Get prompts that haven't been used in any round yet
@@ -54,7 +58,10 @@ export const useGameLogic = () => {
 
       console.log("[useGameLogic] Available UNUSED prompts:", {
         count: availablePrompts?.length,
-        prompts: availablePrompts,
+        prompts: availablePrompts?.map(p => ({
+          id: p.id,
+          prompt: p.prompt
+        })),
         currentRound: round
       });
 
