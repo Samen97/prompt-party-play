@@ -22,9 +22,9 @@ const Index = () => {
   const handleCreateRoom = (username: string) => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     gameStore.setRoomCode(roomCode);
-    gameStore.addPlayer(username);
-    setGameState("prompt-submission");
-    toast.success(`Room created! Your room code is: ${roomCode}`);
+    gameStore.setHost(username);
+    setGameState("lobby"); // Host stays in lobby to manage game
+    toast.success(`Room created! Share this code with players: ${roomCode}`);
   };
 
   const handleJoinRoom = (username: string, roomCode: string) => {
@@ -51,7 +51,7 @@ const Index = () => {
       
       toast.success("Images generated successfully!");
     } catch (error) {
-      toast.error("Error generating images. Please check your API key and try again.");
+      toast.error("Error generating images. Please try again.");
     }
   };
 
@@ -62,16 +62,13 @@ const Index = () => {
       return;
     }
 
-    // Get all prompts and select random ones for options
     const allPrompts = gameStore.players.flatMap((p) => p.prompts);
     const allImages = gameStore.players.flatMap((p) => p.images);
     
-    // Select random image and its corresponding prompt
     const randomIndex = Math.floor(Math.random() * allImages.length);
     const correctImage = allImages[randomIndex];
     const correctPrompt = allPrompts[randomIndex];
 
-    // Generate options (including the correct one)
     const options = [correctPrompt];
     while (options.length < 4) {
       const randomPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
@@ -80,7 +77,6 @@ const Index = () => {
       }
     }
 
-    // Shuffle options
     const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
     gameStore.setCurrentRound(round + 1, correctImage, shuffledOptions, correctPrompt);
@@ -103,22 +99,46 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50">
       <div className="container mx-auto py-8">
+        {gameStore.roomCode && (
+          <div className="mb-8 p-4 bg-white rounded-lg shadow-lg text-center">
+            <h2 className="text-xl font-bold mb-2">Room Code</h2>
+            <p className="text-3xl font-mono bg-gray-100 p-4 rounded">{gameStore.roomCode}</p>
+          </div>
+        )}
+
         {gameState === "api-key" && (
           <ApiKeyInput onApiKeySet={handleApiKeySet} />
         )}
 
         {gameState === "lobby" && (
-          <RoomCreation
-            onCreateRoom={handleCreateRoom}
-            onJoinRoom={handleJoinRoom}
-          />
+          <>
+            {gameStore.isHost ? (
+              <div className="space-y-6 w-full max-w-md mx-auto p-6">
+                <h2 className="text-2xl font-bold text-center">Waiting for Players</h2>
+                <p className="text-center text-gray-600">Share the room code above with players to join</p>
+                <div className="space-y-4">
+                  <h3 className="font-semibold">Connected Players:</h3>
+                  {gameStore.players.map((player) => (
+                    <div key={player.id} className="p-2 bg-white rounded">
+                      {player.username}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <RoomCreation
+                onCreateRoom={handleCreateRoom}
+                onJoinRoom={handleJoinRoom}
+              />
+            )}
+          </>
         )}
 
-        {gameState === "prompt-submission" && (
+        {gameState === "prompt-submission" && !gameStore.isHost && (
           <PromptSubmission onSubmitPrompts={handleSubmitPrompts} />
         )}
 
-        {gameState === "playing" && (
+        {gameState === "playing" && !gameStore.isHost && (
           <>
             <div className="mb-4">
               <h3 className="text-xl font-bold text-center mb-2">

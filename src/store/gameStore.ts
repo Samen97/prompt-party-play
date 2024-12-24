@@ -16,9 +16,11 @@ interface GameState {
   options: string[];
   correctPrompt: string;
   roomCode: string;
+  hostUsername: string | null;
   isHost: boolean;
   addPlayer: (username: string) => void;
   setRoomCode: (code: string) => void;
+  setHost: (username: string) => void;
   updatePlayerPrompts: (playerId: string, prompts: string[], images: string[]) => void;
   updateScore: (playerId: string, points: number) => void;
   setCurrentRound: (round: number, image: string, options: string[], correctPrompt: string) => void;
@@ -33,6 +35,7 @@ export const useGameStore = create<GameState>((set) => ({
   options: [],
   correctPrompt: '',
   roomCode: '',
+  hostUsername: null,
   isHost: false,
 
   addPlayer: (username) =>
@@ -47,10 +50,11 @@ export const useGameStore = create<GameState>((set) => ({
           images: [],
         },
       ],
-      isHost: state.players.length === 0,
     })),
 
   setRoomCode: (code) => set({ roomCode: code }),
+
+  setHost: (username) => set({ hostUsername: username, isHost: true }),
 
   updatePlayerPrompts: (playerId, prompts, images) =>
     set((state) => ({
@@ -82,6 +86,7 @@ export const useGameStore = create<GameState>((set) => ({
       options: [],
       correctPrompt: '',
       roomCode: '',
+      hostUsername: null,
       isHost: false,
     }),
 }));
