@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-)
+import { supabase } from '@/integrations/supabase/client'
 
 export const generateImage = async (prompt: string): Promise<string> => {
   const { data, error } = await supabase.functions.invoke('generate-image', {

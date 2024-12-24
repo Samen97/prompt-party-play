@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { RoomCreation } from "@/components/game/RoomCreation";
 import { PromptSubmission } from "@/components/game/PromptSubmission";
 import { GameRound } from "@/components/game/GameRound";
