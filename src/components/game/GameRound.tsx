@@ -35,9 +35,12 @@ export const GameRound = ({
 
     console.log('Current players state:', playersData);
 
-    // For non-host players, we check if everyone has answered
+    // For non-host players, we check if everyone except the host has answered
     if (!gameStore.isHost) {
-      return playersData?.every(player => player.has_answered);
+      const nonHostPlayers = playersData?.filter(
+        player => player.username !== gameStore.hostUsername
+      );
+      return nonHostPlayers?.every(player => player.has_answered);
     }
 
     // For host, we check if all non-host players have answered
