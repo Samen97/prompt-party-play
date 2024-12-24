@@ -16,3 +16,15 @@ export interface GamePlayer {
 }
 
 export type GameState = "lobby" | "prompt-submission" | "waiting" | "playing" | "results";
+
+export interface PlayerSubmission {
+  username: string;
+  hasSubmitted: boolean;
+}
+
+export interface GamePrompt {
+  id: string;
+  prompt: string;
+  image_url: string;
+  player_username: string;
+}
