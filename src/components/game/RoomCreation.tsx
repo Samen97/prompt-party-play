@@ -13,7 +13,7 @@ export const RoomCreation = ({ onCreateRoom, onJoinRoom }: RoomCreationProps) =>
   const [username, setUsername] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
-  const [testImage, setTestImage] = useState<string | null>(null);
+  const [testImages, setTestImages] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleCreateRoom = () => {
@@ -38,13 +38,20 @@ export const RoomCreation = ({ onCreateRoom, onJoinRoom }: RoomCreationProps) =>
 
   const handleTestGeneration = async () => {
     setIsGenerating(true);
+    const testPrompts = [
+      "a child's drawing of a friendly dragon having a tea party",
+      "a child's drawing of a spaceship landing in a garden full of flowers"
+    ];
+    
     try {
-      const imageUrl = await generateImage("A cute cartoon robot playing with colorful building blocks");
-      setTestImage(imageUrl);
-      toast.success("Test image generated successfully!");
+      const images = await Promise.all(
+        testPrompts.map(prompt => generateImage(prompt))
+      );
+      setTestImages(images);
+      toast.success("Test images generated successfully!");
     } catch (error) {
       console.error('Test image generation error:', error);
-      toast.error("Failed to generate test image. Please try again.");
+      toast.error("Failed to generate test images. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -94,18 +101,18 @@ export const RoomCreation = ({ onCreateRoom, onJoinRoom }: RoomCreationProps) =>
                   className="w-full"
                   disabled={isGenerating}
                 >
-                  {isGenerating ? "Generating Test Image..." : "Generate Test Image"}
+                  {isGenerating ? "Generating Test Images..." : "Generate Test Images"}
                 </Button>
-                {testImage && (
-                  <div className="mt-4">
-                    <h3 className="text-lg font-semibold mb-2">Test Image</h3>
+                {testImages.map((image, index) => (
+                  <div key={index} className="mt-4">
+                    <h3 className="text-lg font-semibold mb-2">Test Image {index + 1}</h3>
                     <img
-                      src={testImage}
-                      alt="Test generated image"
+                      src={image}
+                      alt={`Test generated image ${index + 1}`}
                       className="w-full rounded-lg shadow-lg"
                     />
                   </div>
-                )}
+                ))}
               </div>
             </div>
           </>
