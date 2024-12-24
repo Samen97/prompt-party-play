@@ -58,7 +58,7 @@ export const GameRound = ({
 
       <Button
         onClick={handleSubmit}
-        disabled={gameStore.isHost || !selectedOption || hasAnswered || isProcessing}
+        disabled={!selectedOption || hasAnswered || isProcessing || gameStore.isHost}
         className="w-full max-w-md mx-auto bg-primary hover:bg-primary/90"
       >
         {gameStore.isHost
