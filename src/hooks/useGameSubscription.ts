@@ -8,7 +8,7 @@ export const useGameSubscription = (
   roomCode: string | null,
   gameState: GameState,
   setGameState: (state: GameState) => void,
-  startNewRound: () => GameState
+  startNewRound: () => Promise<GameState> | GameState
 ) => {
   const gameStore = useGameStore();
 
@@ -27,12 +27,12 @@ export const useGameSubscription = (
           table: 'game_rooms',
           filter: `code=eq.${roomCode}`,
         },
-        (payload) => {
+        async (payload) => {
           console.log('Room update received:', payload);
           const newRoom = payload.new as GameRoom;
           if (newRoom?.status === 'playing' && gameState === 'waiting') {
             setGameState('playing');
-            const newState = startNewRound();
+            const newState = await startNewRound();
             if (newState !== gameState) {
               setGameState(newState);
             }
