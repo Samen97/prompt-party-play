@@ -6,6 +6,7 @@ import { useGameStore } from "@/store/gameStore";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { generateImage } from "@/services/openai";
 
 interface PromptSubmissionProps {
   onSubmitPrompts: (prompts: string[]) => void;
@@ -15,7 +16,7 @@ export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => 
   const gameStore = useGameStore();
   const [prompts, setPrompts] = useState<string[]>(['']);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const promptsRequired = 2; // Each player submits 2 prompts
+  const promptsRequired = 2;
 
   const handleAddPrompt = () => {
     if (prompts.length < promptsRequired) {
@@ -61,17 +62,38 @@ export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => 
         throw new Error('Player not found');
       }
 
-      // Submit each prompt with its round number
-      await Promise.all(prompts.map(async (prompt, index) => {
-        const roundNumber = index + 1; // First prompt is round 1, second is round 2
-        await supabase
+      // First, insert all prompts with null image_urls
+      const promptInsertions = await Promise.all(prompts.map(async (prompt, index) => {
+        const { data, error } = await supabase
           .from('game_prompts')
           .insert([{
             room_id: roomData.id,
             player_id: playerData.id,
             prompt: prompt,
-            round_number: roundNumber
-          }]);
+            round_number: index + 1,
+            image_url: null
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }));
+
+      // Then generate images and update the prompts
+      await Promise.all(promptInsertions.map(async (promptData) => {
+        try {
+          const imageUrl = await generateImage(promptData.prompt);
+          
+          await supabase
+            .from('game_prompts')
+            .update({ image_url: imageUrl })
+            .eq('id', promptData.id);
+
+        } catch (error) {
+          console.error('Error generating image:', error);
+          toast.error(`Failed to generate image for prompt: ${promptData.prompt}`);
+        }
       }));
 
       await onSubmitPrompts(prompts);

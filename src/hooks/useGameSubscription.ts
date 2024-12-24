@@ -23,13 +23,10 @@ export const useGameSubscription = (
       return;
     }
 
-    // Only set up subscriptions if they don't already exist
     if (!subscriptionRef.current.roomChannel) {
       console.log("Setting up realtime subscriptions for room:", roomCode);
 
-      /**
-       * SUBSCRIBE: game_rooms
-       */
+      // Room channel subscription
       const roomChannel = supabase
         .channel(`room-${roomCode}`)
         .on(
@@ -44,7 +41,6 @@ export const useGameSubscription = (
             console.log("Room update received:", payload);
             const newRoom = payload.new as GameRoom;
 
-            // Update game store with current round info
             if (newRoom.current_round !== null) {
               gameStore.setCurrentRound(
                 newRoom.current_round,
@@ -54,14 +50,10 @@ export const useGameSubscription = (
               );
             }
 
-            // Handle game state transitions
             if (newRoom.status === "playing") {
               console.log("Game starting - transitioning to playing state");
-              
-              // Set game state to playing for all players
               setGameState("playing");
               
-              // Only start new round if we're the host
               if (gameStore.isHost) {
                 console.log("Host starting new round");
                 const newState = await startNewRound();
@@ -77,9 +69,7 @@ export const useGameSubscription = (
         )
         .subscribe();
 
-      /**
-       * SUBSCRIBE: game_players
-       */
+      // Player channel subscription
       const playerChannel = supabase
         .channel(`players-${roomCode}`)
         .on(
@@ -103,9 +93,7 @@ export const useGameSubscription = (
         )
         .subscribe();
 
-      /**
-       * SUBSCRIBE: game_prompts
-       */
+      // Prompt channel subscription with enhanced handling
       const promptChannel = supabase
         .channel(`prompts-${roomCode}`)
         .on(
@@ -116,19 +104,88 @@ export const useGameSubscription = (
             table: "game_prompts",
             filter: `room_id=eq.${roomCode}`,
           },
-          (payload) => {
+          async (payload) => {
+            console.log("Prompt update received:", payload);
+            
             if (payload.eventType === "INSERT") {
               const newPrompt = payload.new;
-              if (newPrompt.image_url) {
-                gameStore.addPrompt(newPrompt.prompt, newPrompt.image_url);
-                toast.info(`New prompt submitted!`);
+              if (gameStore.isHost) {
+                // Re-fetch all prompts to get the latest state
+                const { data: roomData } = await supabase
+                  .from("game_rooms")
+                  .select()
+                  .eq("code", roomCode)
+                  .single();
+
+                if (roomData) {
+                  const { data: promptsData } = await supabase
+                    .from("game_prompts")
+                    .select(`
+                      id,
+                      prompt,
+                      image_url,
+                      player_id,
+                      game_players (
+                        username
+                      )
+                    `)
+                    .eq("room_id", roomData.id);
+
+                  if (promptsData) {
+                    const formattedPrompts = promptsData.map(prompt => ({
+                      id: prompt.id,
+                      prompt: prompt.prompt,
+                      image_url: prompt.image_url,
+                      player_username: prompt.game_players?.username || "Unknown Player"
+                    }));
+                    gameStore.setPrompts(formattedPrompts);
+                  }
+                }
+              }
+              toast.info("New prompt submitted!");
+            } else if (payload.eventType === "UPDATE") {
+              // Handle image URL updates
+              if (payload.new.image_url && !payload.old.image_url) {
+                toast.success("Image generated for prompt!");
+                if (gameStore.isHost) {
+                  // Re-fetch to get the latest state
+                  const { data: roomData } = await supabase
+                    .from("game_rooms")
+                    .select()
+                    .eq("code", roomCode)
+                    .single();
+
+                  if (roomData) {
+                    const { data: promptsData } = await supabase
+                      .from("game_prompts")
+                      .select(`
+                        id,
+                        prompt,
+                        image_url,
+                        player_id,
+                        game_players (
+                          username
+                        )
+                      `)
+                      .eq("room_id", roomData.id);
+
+                    if (promptsData) {
+                      const formattedPrompts = promptsData.map(prompt => ({
+                        id: prompt.id,
+                        prompt: prompt.prompt,
+                        image_url: prompt.image_url,
+                        player_username: prompt.game_players?.username || "Unknown Player"
+                      }));
+                      gameStore.setPrompts(formattedPrompts);
+                    }
+                  }
+                }
               }
             }
           }
         )
         .subscribe();
 
-      // Store the channels in the ref
       subscriptionRef.current = {
         roomChannel,
         playerChannel,
@@ -136,7 +193,6 @@ export const useGameSubscription = (
       };
     }
 
-    // Cleanup function
     return () => {
       if (subscriptionRef.current.roomChannel) {
         console.log("Cleaning up realtime subscriptions");
@@ -150,5 +206,5 @@ export const useGameSubscription = (
         };
       }
     };
-  }, [roomCode]); // Only re-run if roomCode changes
+  }, [roomCode]);
 };
