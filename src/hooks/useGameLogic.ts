@@ -1,10 +1,12 @@
 import { useCallback } from "react";
 import { useGameStore } from "@/store/gameStore";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const useGameLogic = () => {
   const gameStore = useGameStore();
 
-  const startNewRound = useCallback(() => {
+  const startNewRound = useCallback(async () => {
     // Get current round from store
     const round = gameStore.currentRound;
     
@@ -23,34 +25,62 @@ export const useGameLogic = () => {
       return "results";
     }
 
-    // Select random image and prompt for this round
-    const randomIndex = Math.floor(Math.random() * allImages.length);
-    const correctImage = allImages[randomIndex];
-    const correctPrompt = allPrompts[randomIndex];
+    try {
+      // Get the room data to store the current image and prompt
+      const { data: roomData } = await supabase
+        .from('game_rooms')
+        .select()
+        .eq('code', gameStore.roomCode)
+        .single();
 
-    // Get 3 random different prompts for options
-    const options = [correctPrompt];
-    const availablePrompts = allPrompts.filter(p => p !== correctPrompt);
-    
-    while (options.length < 4 && availablePrompts.length > 0) {
-      const randomPrompt = availablePrompts[Math.floor(Math.random() * availablePrompts.length)];
-      if (!options.includes(randomPrompt)) {
-        options.push(randomPrompt);
-        availablePrompts.splice(availablePrompts.indexOf(randomPrompt), 1);
+      if (!roomData) {
+        console.error("Room not found");
+        return "waiting";
       }
-    }
 
-    // If we don't have enough unique prompts, duplicate some
-    while (options.length < 4) {
-      options.push(correctPrompt);
-    }
+      // Select random image and prompt for this round
+      const randomIndex = Math.floor(Math.random() * allImages.length);
+      const correctImage = allImages[randomIndex];
+      const correctPrompt = allPrompts[randomIndex];
 
-    // Shuffle options and update game state
-    const shuffledOptions = options.sort(() => Math.random() - 0.5);
-    console.log(`Starting round ${round + 1} of ${gameStore.totalRounds}`);
-    gameStore.setCurrentRound(round + 1, correctImage, shuffledOptions, correctPrompt);
-    
-    return "playing";
+      // Generate false answers using GPT-4
+      const { data: falseAnswers, error: gptError } = await supabase.functions
+        .invoke('generate-false-answers', {
+          body: { correctPrompt }
+        });
+
+      if (gptError) {
+        console.error('Error generating false answers:', gptError);
+        toast.error('Error generating game options');
+        return "waiting";
+      }
+
+      // Combine correct answer with AI-generated false answers
+      const options = [correctPrompt, ...falseAnswers.alternatives];
+      
+      // Shuffle options
+      const shuffledOptions = options.sort(() => Math.random() - 0.5);
+
+      // Update the room with the current image and options
+      await supabase
+        .from('game_rooms')
+        .update({
+          current_image: correctImage,
+          current_options: shuffledOptions,
+          correct_prompt: correctPrompt,
+          current_round: round + 1
+        })
+        .eq('id', roomData.id);
+
+      console.log(`Starting round ${round + 1} of ${gameStore.totalRounds}`);
+      gameStore.setCurrentRound(round + 1, correctImage, shuffledOptions, correctPrompt);
+      
+      return "playing";
+    } catch (error) {
+      console.error('Error starting new round:', error);
+      toast.error('Error starting new round');
+      return "waiting";
+    }
   }, [gameStore]);
 
   return { startNewRound };
