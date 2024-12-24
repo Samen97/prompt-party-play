@@ -13,7 +13,10 @@ export const useGameSubscription = (
   const gameStore = useGameStore();
 
   useEffect(() => {
-    if (!roomCode) return;
+    if (!roomCode) {
+      console.log('No room code available for subscriptions');
+      return;
+    }
 
     console.log('Setting up realtime subscriptions for room:', roomCode);
 
@@ -30,7 +33,9 @@ export const useGameSubscription = (
         async (payload) => {
           console.log('Room update received:', payload);
           const newRoom = payload.new as GameRoom;
+          
           if (newRoom?.status === 'playing' && gameState === 'waiting') {
+            console.log('Game starting - transitioning to playing state');
             setGameState('playing');
             const newState = await startNewRound();
             if (newState !== gameState) {
@@ -83,10 +88,9 @@ export const useGameSubscription = (
           console.log('Prompt update received:', payload);
           if (payload.eventType === 'INSERT') {
             const newPrompt = payload.new;
-            toast.info(`New prompt submitted by a player!`);
-            // Update the game store with the new prompt
             if (newPrompt.image_url) {
               gameStore.addPrompt(newPrompt.prompt, newPrompt.image_url);
+              toast.info(`New prompt submitted!`);
             }
           }
         }
