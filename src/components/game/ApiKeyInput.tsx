@@ -9,14 +9,16 @@ interface ApiKeyInputProps {
 
 export const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
   const [apiKey, setApiKey] = useState("");
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   useEffect(() => {
     const savedApiKey = localStorage.getItem("openai_api_key");
-    if (savedApiKey) {
+    if (savedApiKey && !initialLoadDone) {
       setApiKey(savedApiKey);
       onApiKeySet(savedApiKey);
+      setInitialLoadDone(true);
     }
-  }, [onApiKeySet]);
+  }, [onApiKeySet, initialLoadDone]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
