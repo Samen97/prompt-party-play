@@ -11,6 +11,12 @@ interface GameRoundProps {
   onSubmitGuess: (guess: string) => void;
 }
 
+/**
+ * GameRound
+ * - The host does NOT guess (skips the entire "submit guess" flow).
+ * - Only non-host players do guess; once all non-hosts have answered,
+ *   we automatically advance to the next round.
+ */
 export const GameRound = ({
   imageUrl,
   options,
@@ -21,12 +27,12 @@ export const GameRound = ({
   const [isProcessing, setIsProcessing] = useState(false);
 
   const gameStore = useGameStore();
-  // Assumes you have a reliable way to get the *current player's* username.
-  // If you store it differently, adjust as needed.
-  const currentUsername = gameStore.currentPlayerUsername; 
-  // e.g., gameStore.user?.username or similar
 
-  // Reset local state whenever the image changes (i.e. new round).
+  // If you store the current player's username differently, adjust here.
+  // For example: const currentUsername = gameStore.user?.username;
+  const currentUsername = gameStore.currentPlayerUsername;
+
+  // Reset local guess state whenever the displayed image changes.
   useEffect(() => {
     setSelectedOption(null);
     setHasAnswered(false);
@@ -34,10 +40,9 @@ export const GameRound = ({
   }, [imageUrl]);
 
   /**
-   * Checks whether *all* players in the room (including the host)
-   * have answered. If you want only non-host to guess, adjust accordingly.
+   * Checks whether all non-host players in the room have answered.
    */
-  const checkAllPlayersAnswered = async (roomId: string) => {
+  const checkAllNonHostPlayersAnswered = async (roomId: string) => {
     const { data: playersData, error } = await supabase
       .from("game_players")
       .select("*")
@@ -48,22 +53,37 @@ export const GameRound = ({
       return false;
     }
 
-    console.log("Current players state:", playersData);
-    // Example: everyone must have has_answered = true.
-    return playersData.every((player) => player.has_answered === true);
+    // Filter out the host by their username
+    const nonHostPlayers = playersData.filter(
+      (player) => player.username !== gameStore.hostUsername
+    );
+
+    // We want *all non-host* players to have has_answered = true
+    return nonHostPlayers.every((player) => player.has_answered === true);
   };
 
+  /**
+   * Submits the user's guess (non-host only).
+   * - Marks the current player as has_answered.
+   * - Checks if all non-host players are done => moves to next round.
+   */
   const handleSubmit = async () => {
-    // Block if no option selected, or if already answered/processing
     if (!selectedOption || hasAnswered || isProcessing) return;
 
     setIsProcessing(true);
 
     try {
-      // Find the current room
+      // 1) If the user is the host, do nothing and bail out
+      if (gameStore.isHost) {
+        toast("Host does not guess in this mode.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2) Get the current room
       const { data: roomData, error: roomError } = await supabase
         .from("game_rooms")
-        .select()
+        .select("*")
         .eq("code", gameStore.roomCode)
         .single();
 
@@ -73,12 +93,12 @@ export const GameRound = ({
         return;
       }
 
-      // 1) Update current player's has_answered (host or not)
+      // 3) Find the current player's record (non-host user)
       const { data: playerData, error: playerError } = await supabase
         .from("game_players")
         .select("*")
         .eq("room_id", roomData.id)
-        .eq("username", currentUsername) // <-- use the *actual* current user
+        .eq("username", currentUsername)
         .single();
 
       if (playerError || !playerData) {
@@ -87,7 +107,7 @@ export const GameRound = ({
         return;
       }
 
-      // Mark this player as answered
+      // 4) Mark this player as answered
       const { error: updateError } = await supabase
         .from("game_players")
         .update({ has_answered: true })
@@ -99,26 +119,25 @@ export const GameRound = ({
         return;
       }
 
-      // 2) Run your guess handler
+      // 5) Run your guess callback
       onSubmitGuess(selectedOption);
       setHasAnswered(true);
 
-      // 3) Check if *all* players have answered
-      const allAnswered = await checkAllPlayersAnswered(roomData.id);
-      console.log("All players answered:", allAnswered);
+      // 6) Check if all non-host players are done
+      const allAnswered = await checkAllNonHostPlayersAnswered(roomData.id);
+      console.log("All non-host players answered:", allAnswered);
 
       if (allAnswered) {
-        console.log("All players have answered. Proceeding to next round.");
+        console.log("All non-host players have answered. Moving to next round.");
 
-        // (a) Reset everyone's has_answered
+        // Reset everyone’s has_answered for the next round
         await supabase
           .from("game_players")
           .update({ has_answered: false })
           .eq("room_id", roomData.id);
 
-        // (b) Move the room to the next round
+        // Increment current_round and clear the current round’s data
         const nextRound = (roomData.current_round || 0) + 1;
-
         await supabase
           .from("game_rooms")
           .update({
@@ -174,10 +193,12 @@ export const GameRound = ({
 
       <Button
         onClick={handleSubmit}
-        disabled={!selectedOption || hasAnswered || isProcessing}
+        disabled={gameStore.isHost || !selectedOption || hasAnswered || isProcessing}
         className="w-full max-w-md mx-auto bg-primary hover:bg-primary/90"
       >
-        {isProcessing
+        {gameStore.isHost
+          ? "Host Cannot Guess"
+          : isProcessing
           ? "Processing..."
           : hasAnswered
           ? "Waiting for other players..."
