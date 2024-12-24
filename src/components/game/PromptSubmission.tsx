@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useGameStore } from "@/store/gameStore";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface PromptSubmissionProps {
   onSubmitPrompts: (prompts: string[]) => void;
@@ -27,10 +28,20 @@ export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => 
     setPrompts(newPrompts);
   };
 
-  const handleSubmit = () => {
-    if (prompts.every(prompt => prompt.trim())) {
+  const handleSubmit = async () => {
+    if (!prompts.every(prompt => prompt.trim())) {
+      toast.error("Please fill in all prompts");
+      return;
+    }
+
+    try {
       setIsSubmitting(true);
-      onSubmitPrompts(prompts);
+      await onSubmitPrompts(prompts);
+      toast.success("Prompts submitted successfully!");
+    } catch (error) {
+      console.error('Error submitting prompts:', error);
+      toast.error("Failed to submit prompts. Please try again.");
+      setIsSubmitting(false);
     }
   };
 
@@ -81,7 +92,7 @@ export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => 
 
           <Button
             onClick={handleSubmit}
-            disabled={!prompts.every(prompt => prompt.trim()) || prompts.length < promptsRequired}
+            disabled={!prompts.every(prompt => prompt.trim()) || prompts.length < promptsRequired || isSubmitting}
             className="w-full bg-primary hover:bg-primary/90"
           >
             Submit Prompts

@@ -1,8 +1,10 @@
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { useGameStore } from "@/store/gameStore";
-import { useGameRound } from "@/hooks/useGameRound";
 import { useEffect } from "react";
+import { useGameStore } from "@/store/gameStore";
+import { GameProgress } from "./GameProgress";
+import { Button } from "@/components/ui/button";
+import { useGameRound } from "@/hooks/useGameRound";
+import { Card } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
 interface GameRoundProps {
   imageUrl: string;
@@ -10,11 +12,7 @@ interface GameRoundProps {
   onSubmitGuess: (guess: string) => void;
 }
 
-export const GameRound = ({
-  imageUrl,
-  options,
-  onSubmitGuess,
-}: GameRoundProps) => {
+export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) => {
   const gameStore = useGameStore();
   const {
     selectedOption,
@@ -34,66 +32,74 @@ export const GameRound = ({
     });
 
     if (!currentRoundImage) {
-      console.error('No image URL provided for round:', gameStore.currentRound);
+      console.log('Waiting for image for round:', gameStore.currentRound);
     }
   }, [currentRoundImage, options, gameStore.currentRound]);
 
+  if (!currentRoundImage || !options?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-lg font-medium">Loading round {gameStore.currentRound}...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold">Which prompt created this image?</h2>
-        <p className="text-gray-600">
-          Round {gameStore.currentRound} of {gameStore.totalRounds}
-        </p>
+      <GameProgress />
+      
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold">What was the prompt for this image?</h2>
+        <p className="text-gray-600">Select the correct prompt that was used to generate this image</p>
       </div>
 
       <div className="aspect-square w-full max-w-2xl mx-auto">
-        {currentRoundImage ? (
+        <Card className="w-full h-full overflow-hidden">
           <img
             src={currentRoundImage}
             alt="AI Generated Image"
-            className="w-full h-full object-cover rounded-lg shadow-lg"
+            className="w-full h-full object-cover"
             onError={(e) => {
               console.error('Image failed to load:', currentRoundImage);
               e.currentTarget.src = '/placeholder.svg';
             }}
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
-            <p className="text-gray-500">Loading image...</p>
-          </div>
-        )}
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
         {options.map((option, index) => (
-          <Card
+          <Button
             key={index}
-            className={`p-4 cursor-pointer transition-all ${
-              selectedOption === option
-                ? "border-primary border-2"
-                : "hover:border-gray-400"
+            variant={selectedOption === option ? "default" : "outline"}
+            className={`p-4 h-auto text-lg ${
+              hasAnswered ? 'cursor-not-allowed' : ''
             }`}
             onClick={() => !hasAnswered && setSelectedOption(option)}
+            disabled={hasAnswered || isProcessing}
           >
-            <p className="text-lg">{option}</p>
-          </Card>
+            {option}
+          </Button>
         ))}
       </div>
 
-      <Button
-        onClick={handleSubmit}
-        disabled={!selectedOption || hasAnswered || isProcessing || gameStore.isHost}
-        className="w-full max-w-md mx-auto bg-primary hover:bg-primary/90"
-      >
-        {gameStore.isHost
-          ? "Host Cannot Guess"
-          : isProcessing
-          ? "Processing..."
-          : hasAnswered
-          ? "Waiting for other players..."
-          : "Submit Guess"}
-      </Button>
+      <div className="flex justify-center">
+        <Button
+          onClick={handleSubmit}
+          disabled={!selectedOption || hasAnswered || isProcessing}
+          className="px-8 py-2"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Submitting...
+            </>
+          ) : (
+            'Submit Answer'
+          )}
+        </Button>
+      </div>
     </div>
   );
 };
