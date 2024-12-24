@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import OpenAI from 'https://esm.sh/openai@4.28.0'
 
 const corsHeaders = {
@@ -20,10 +19,10 @@ serve(async (req) => {
     })
 
     const basePrompt = correctPrompt.replace("A child's drawing of ", "");
-    const prompt = `Given this prompt for an image: "${basePrompt}", generate 3 alternative prompts that are very similar but slightly different. 
-    Keep the same theme and style, just change small details. For example, if the prompt is "a happy cat in a garden", 
-    you might suggest "a cheerful cat playing with flowers", "a smiling cat among garden plants", and "a joyful cat in a flower bed". 
-    Make them creative but closely related to the original concept. Return ONLY an array of 3 alternatives, no explanation or other text.`
+    const prompt = `Given this prompt: "${basePrompt}", generate 3 very similar but slightly different prompts. 
+    Keep the exact same theme and style, just change small details. For example, if the prompt is "a happy cat in a garden", 
+    you might suggest "a joyful cat in a garden", "a cheerful cat among flowers", "a smiling cat in the garden". 
+    Make them extremely similar to the original. Return ONLY an array of 3 alternatives, no explanation or other text.`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",

@@ -39,9 +39,12 @@ export const useGameLogic = () => {
       }
 
       // Select random image and prompt for this round
-      const randomIndex = Math.floor(Math.random() * allImages.length);
-      const correctImage = allImages[randomIndex];
-      const correctPrompt = allPrompts[randomIndex];
+      const unusedPrompts = allPrompts.filter(prompt => prompt !== gameStore.correctPrompt);
+      const unusedImages = allImages.filter(image => image !== gameStore.currentImage);
+      
+      const randomIndex = Math.floor(Math.random() * unusedPrompts.length);
+      const correctImage = unusedImages[randomIndex];
+      const correctPrompt = unusedPrompts[randomIndex];
 
       // Generate false answers using GPT-4
       const { data: falseAnswers, error: gptError } = await supabase.functions

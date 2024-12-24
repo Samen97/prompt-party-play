@@ -53,36 +53,31 @@ export const GameRound = ({
         // Call onSubmitGuess to process the answer
         onSubmitGuess(selectedOption);
 
-        // If host, check if all players have answered
-        if (gameStore.isHost) {
-          const { data: allPlayers } = await supabase
+        // Get count of players in the room
+        const { data: playersCount } = await supabase
+          .from('game_players')
+          .select('id', { count: 'exact' })
+          .eq('room_id', roomData.id);
+
+        // If there's only one player or if host, proceed to next round immediately
+        if (playersCount?.length === 1 || gameStore.isHost) {
+          // Reset all players' has_answered status
+          await supabase
             .from('game_players')
-            .select()
+            .update({ has_answered: false })
             .eq('room_id', roomData.id);
 
-          const nonHostPlayers = allPlayers?.filter(player => 
-            player.username !== gameStore.hostUsername
-          );
-
-          if (nonHostPlayers?.every(player => player.has_answered)) {
-            // Reset all players' has_answered status
-            await supabase
-              .from('game_players')
-              .update({ has_answered: false })
-              .eq('room_id', roomData.id);
-
-            // Update room to next round
-            const nextRound = roomData.current_round + 1;
-            await supabase
-              .from('game_rooms')
-              .update({ 
-                current_round: nextRound,
-                current_image: null,
-                current_options: null,
-                correct_prompt: null
-              })
-              .eq('id', roomData.id);
-          }
+          // Update room to next round
+          const nextRound = roomData.current_round + 1;
+          await supabase
+            .from('game_rooms')
+            .update({ 
+              current_round: nextRound,
+              current_image: null,
+              current_options: null,
+              correct_prompt: null
+            })
+            .eq('id', roomData.id);
         }
       }
     }
@@ -124,7 +119,7 @@ export const GameRound = ({
         disabled={!selectedOption || hasAnswered}
         className="w-full max-w-md mx-auto bg-primary hover:bg-primary/90"
       >
-        {hasAnswered ? "Waiting for other players..." : "Submit Guess"}
+        {hasAnswered ? "Waiting for next round..." : "Submit Guess"}
       </Button>
     </div>
   );
