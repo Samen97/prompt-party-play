@@ -27,21 +27,14 @@ export const GameRound = ({
   const [isProcessing, setIsProcessing] = useState(false);
 
   const gameStore = useGameStore();
-
-  // If you store the current player's username differently, adjust here.
-  // For example: const currentUsername = gameStore.user?.username;
   const currentUsername = gameStore.currentPlayerUsername;
 
-  // Reset local guess state whenever the displayed image changes.
   useEffect(() => {
     setSelectedOption(null);
     setHasAnswered(false);
     setIsProcessing(false);
   }, [imageUrl]);
 
-  /**
-   * Checks whether all non-host players in the room have answered.
-   */
   const checkAllNonHostPlayersAnswered = async (roomId: string) => {
     const { data: playersData, error } = await supabase
       .from("game_players")
@@ -53,20 +46,15 @@ export const GameRound = ({
       return false;
     }
 
-    // Filter out the host by their username
-    const nonHostPlayers = playersData.filter(
-      (player) => player.username !== gameStore.hostUsername
-    );
+    console.log('Current players state:', playersData);
 
-    // We want *all non-host* players to have has_answered = true
-    return nonHostPlayers.every((player) => player.has_answered === true);
+    // For non-host players, we check if all non-host players (including themselves) have answered
+    const nonHostPlayers = playersData?.filter(
+      player => player.username !== gameStore.hostUsername
+    );
+    return nonHostPlayers?.every(player => player.has_answered);
   };
 
-  /**
-   * Submits the user's guess (non-host only).
-   * - Marks the current player as has_answered.
-   * - Checks if all non-host players are done => moves to next round.
-   */
   const handleSubmit = async () => {
     if (!selectedOption || hasAnswered || isProcessing) return;
 
@@ -99,10 +87,18 @@ export const GameRound = ({
         .select("*")
         .eq("room_id", roomData.id)
         .eq("username", currentUsername)
-        .single();
+        .maybeSingle();
 
-      if (playerError || !playerData) {
-        toast.error("Could not find your player record");
+      if (playerError) {
+        console.error("Error finding player:", playerError);
+        toast.error("Error finding your player record");
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!playerData) {
+        console.error("No player record found for username:", currentUsername);
+        toast.error("Could not find your player record. Please try rejoining the game.");
         setIsProcessing(false);
         return;
       }
@@ -130,13 +126,13 @@ export const GameRound = ({
       if (allAnswered) {
         console.log("All non-host players have answered. Moving to next round.");
 
-        // Reset everyone’s has_answered for the next round
+        // Reset everyone's has_answered for the next round
         await supabase
           .from("game_players")
           .update({ has_answered: false })
           .eq("room_id", roomData.id);
 
-        // Increment current_round and clear the current round’s data
+        // Increment current_round and clear the current round's data
         const nextRound = (roomData.current_round || 0) + 1;
         await supabase
           .from("game_rooms")
