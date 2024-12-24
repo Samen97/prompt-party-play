@@ -5,23 +5,14 @@ export interface GameRoom {
   status: string;
   current_round: number;
   created_at: string;
+  current_image: string | null;
+  current_options: string[] | null;
+  correct_prompt: string | null;
 }
 
 export interface GamePlayer {
   id: string;
-  room_id: string;
   username: string;
-  score: number;
-  created_at: string;
-}
-
-export interface GamePrompt {
-  id: string;
-  room_id: string;
-  player_id: string;
-  prompt: string;
-  image_url: string;
-  created_at: string;
 }
 
 export type GameState = "lobby" | "prompt-submission" | "waiting" | "playing" | "results";
