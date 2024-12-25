@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { GameProgress } from "./GameProgress";
 import { Button } from "@/components/ui/button";
 import { useGameRound } from "@/hooks/useGameRound";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { debounce } from "lodash";
 
 interface GameRoundProps {
   imageUrl: string;
@@ -14,6 +15,7 @@ interface GameRoundProps {
 
 export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) => {
   const gameStore = useGameStore();
+  const [stableOptions, setStableOptions] = useState<string[]>([]);
   const {
     selectedOption,
     setSelectedOption,
@@ -24,18 +26,32 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
 
   const currentRoundImage = gameStore.getRoundImage(gameStore.currentRound);
 
+  // Debounced options update
+  const updateOptions = debounce((newOptions: string[]) => {
+    setStableOptions(newOptions);
+  }, 300);
+
+  useEffect(() => {
+    if (options?.length > 0) {
+      updateOptions(options);
+    }
+    return () => {
+      updateOptions.cancel();
+    };
+  }, [options]);
+
   useEffect(() => {
     console.log("GameRound rendered with:", {
       round: gameStore.currentRound,
       imageUrl: currentRoundImage,
-      hasOptions: options?.length > 0,
+      hasOptions: stableOptions?.length > 0,
       storeImage: gameStore.currentImage,
-      currentOptions: options,
+      currentOptions: stableOptions,
     });
-  }, [currentRoundImage, options, gameStore.currentRound, gameStore.currentImage]);
+  }, [currentRoundImage, stableOptions, gameStore.currentRound, gameStore.currentImage]);
 
   // Show loading state while waiting for round data
-  if (!currentRoundImage || !options?.length) {
+  if (!currentRoundImage || !stableOptions?.length) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -73,13 +89,13 @@ export const GameRound = ({ imageUrl, options, onSubmitGuess }: GameRoundProps) 
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-        {options.map((option, index) => (
+        {stableOptions.map((option, index) => (
           <Button
             key={index}
             variant={selectedOption === option ? "default" : "outline"}
             className={`p-4 h-auto text-lg ${
               hasAnswered ? "cursor-not-allowed" : ""
-            }`}
+            } transition-all duration-200`}
             onClick={() => !hasAnswered && setSelectedOption(option)}
             disabled={hasAnswered || isProcessing}
           >
