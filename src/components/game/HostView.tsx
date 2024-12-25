@@ -1,170 +1,133 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
-import { GameProgress } from "./GameProgress";
 import { supabase } from "@/integrations/supabase/client";
-import { LobbyStatus } from "./LobbyStatus";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { GameControls } from "./GameControls";
 import { PlayerSubmissionsPanel } from "./PlayerSubmissionsPanel";
 import { PromptsPanel } from "./PromptsPanel";
-import { StartGameButton } from "./StartGameButton";
-import { PlayerSubmission, GamePrompt, GameRoom } from "@/types/game";
-import { toast } from "sonner";
-import { debounce } from "lodash";
+import { GameProgress } from "./GameProgress";
+import { Loader2 } from "lucide-react";
+import { GameRoom } from "@/types/game";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export const HostView = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [room, setRoom] = useState<GameRoom | null>(null);
   const gameStore = useGameStore();
-  const [playerSubmissions, setPlayerSubmissions] = useState<PlayerSubmission[]>([]);
-  const [canStartGame, setCanStartGame] = useState(false);
-  const [prompts, setPrompts] = useState<GamePrompt[]>([]);
-  const [isProcessingGameStart, setIsProcessingGameStart] = useState(false);
-  const subscriptionsActive = useRef(false);
-
-  // Debounced version of fetchSubmissions to prevent multiple rapid calls
-  const debouncedFetchSubmissions = useCallback(
-    debounce(async () => {
-      if (!gameStore.roomCode) return;
-
-      const { data: roomData, error: roomError } = await supabase
-        .from("game_rooms")
-        .select()
-        .eq("code", gameStore.roomCode)
-        .single();
-
-      if (roomError || !roomData) {
-        console.error("[HostView] Could not fetch room:", roomError);
-        return;
-      }
-
-      const { data: players, error: playersError } = await supabase
-        .from("game_players")
-        .select("id, username")
-        .eq("room_id", roomData.id);
-
-      if (playersError) {
-        console.error("[HostView] Error fetching players:", playersError);
-      }
-
-      const { data: promptsData, error: promptsError } = await supabase
-        .from("game_prompts")
-        .select(`
-          id,
-          prompt,
-          image_url,
-          player_id,
-          game_players (
-            username
-          )
-        `)
-        .eq("room_id", roomData.id);
-
-      if (promptsError) {
-        console.error("[HostView] Error fetching prompts:", promptsError);
-      }
-
-      const formattedPrompts: GamePrompt[] = (promptsData || []).map((p) => ({
-        id: p.id,
-        prompt: p.prompt,
-        image_url: p.image_url,
-        player_username: p.game_players?.username || "Unknown Player",
-      }));
-
-      setPrompts(formattedPrompts);
-      gameStore.setPrompts(formattedPrompts);
-
-      const submissions = (players || []).map((player) => ({
-        username: player.username,
-        hasSubmitted: (promptsData || []).some(
-          (pr) => pr.player_id === player.id && pr.image_url
-        ),
-      }));
-
-      setPlayerSubmissions(submissions);
-      const canStart = submissions.every((player) => player.hasSubmitted);
-      setCanStartGame(canStart);
-
-      if (submissions.length > 0) {
-        const totalRounds = submissions.length * 2;
-        gameStore.setTotalRounds(totalRounds);
-      }
-    }, 500),
-    [gameStore]
-  );
 
   useEffect(() => {
-    if (!gameStore.roomCode || subscriptionsActive.current) {
-      return;
-    }
+    const fetchRoom = async () => {
+      try {
+        const { data: roomData, error } = await supabase
+          .from('game_rooms')
+          .select()
+          .eq('code', gameStore.roomCode)
+          .maybeSingle();
 
-    console.log("[HostView] Setting up subscriptions for room:", gameStore.roomCode);
-    subscriptionsActive.current = true;
+        if (error) {
+          throw error;
+        }
 
-    const roomChannel = supabase
-      .channel(`room_${gameStore.roomCode}`)
+        if (!roomData) {
+          toast.error('Room not found');
+          return;
+        }
+
+        setRoom(roomData);
+      } catch (error) {
+        console.error('[HostView] Could not fetch room:', error);
+        toast.error('Failed to load room data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRoom();
+
+    // Set up realtime subscription
+    const roomSubscription = supabase
+      .channel(`room:${gameStore.roomCode}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "game_rooms",
+          event: '*',
+          schema: 'public',
+          table: 'game_rooms',
           filter: `code=eq.${gameStore.roomCode}`,
         },
-        async (payload: RealtimePostgresChangesPayload<GameRoom>) => {
-          console.log("[HostView] game_rooms update:", payload);
-          
-          const newRoom = payload.new as GameRoom;
-          if (newRoom && newRoom.status === 'playing' && !isProcessingGameStart) {
-            setIsProcessingGameStart(true);
-            await debouncedFetchSubmissions();
-            setIsProcessingGameStart(false);
+        (payload: RealtimePostgresChangesPayload<GameRoom>) => {
+          if (payload.new && 'status' in payload.new) {
+            setRoom(payload.new);
           }
         }
       )
       .subscribe();
 
-    const promptsChannel = supabase
-      .channel(`prompts_${gameStore.roomCode}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_prompts",
-        },
-        () => {
-          debouncedFetchSubmissions();
-        }
-      )
-      .subscribe();
-
-    debouncedFetchSubmissions();
-
     return () => {
-      console.log("[HostView] Cleaning up subscriptions");
-      supabase.removeChannel(roomChannel);
-      supabase.removeChannel(promptsChannel);
-      subscriptionsActive.current = false;
+      roomSubscription.unsubscribe();
     };
-  }, [gameStore.roomCode, debouncedFetchSubmissions, isProcessingGameStart]);
+  }, [gameStore.roomCode]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!room) {
+    return (
+      <Card className="p-6 text-center">
+        <h2 className="text-xl font-bold mb-2">Room Not Found</h2>
+        <p className="text-gray-600">The game room could not be found. Please check the room code and try again.</p>
+      </Card>
+    );
+  }
 
   return (
-    <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
-      <GameProgress />
-
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-center">Host View</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <PlayerSubmissionsPanel playerSubmissions={playerSubmissions} />
-          <PromptsPanel prompts={prompts} />
+    <div className="space-y-6">
+      <Card className="p-6">
+        <h2 className="text-2xl font-bold mb-4">Game Host View</h2>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm text-gray-600">Room Code</p>
+              <p className="text-xl font-bold">{room.code}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Status</p>
+              <p className="text-xl font-bold capitalize">{room.status}</p>
+            </div>
+          </div>
+          
+          <GameProgress />
+          
+          <GameControls 
+            gameState={room.status as any}
+            setGameState={(status) => {
+              supabase
+                .from('game_rooms')
+                .update({ status })
+                .eq('id', room.id)
+                .then(({ error }) => {
+                  if (error) {
+                    toast.error('Failed to update game status');
+                  }
+                });
+            }}
+            startNewRound={() => {
+              // Implementation handled by subscription
+              return room.status as any;
+            }}
+          />
         </div>
+      </Card>
 
-        <LobbyStatus />
-
-        <StartGameButton
-          roomCode={gameStore.roomCode}
-          canStartGame={canStartGame}
-        />
-      </div>
+      <PlayerSubmissionsPanel />
+      <PromptsPanel />
     </div>
   );
 };
