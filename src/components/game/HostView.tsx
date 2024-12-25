@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { GameProgress } from "./GameProgress";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +9,6 @@ import { StartGameButton } from "./StartGameButton";
 import { PlayerSubmission, GamePrompt } from "@/types/game";
 import { toast } from "sonner";
 import { debounce } from "lodash";
-import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export const HostView = () => {
   const gameStore = useGameStore();
@@ -17,6 +16,7 @@ export const HostView = () => {
   const [canStartGame, setCanStartGame] = useState(false);
   const [prompts, setPrompts] = useState<GamePrompt[]>([]);
   const [isProcessingGameStart, setIsProcessingGameStart] = useState(false);
+  const subscriptionsActive = useRef(false);
 
   // Debounced version of fetchSubmissions to prevent multiple rapid calls
   const debouncedFetchSubmissions = useCallback(
@@ -85,23 +85,17 @@ export const HostView = () => {
         const totalRounds = submissions.length * 2;
         gameStore.setTotalRounds(totalRounds);
       }
-
-      console.log("[HostView] fetchSubmissions done:", {
-        roomId: roomData.id,
-        players,
-        promptsData,
-      });
     }, 500),
     [gameStore]
   );
 
   useEffect(() => {
-    if (!gameStore.roomCode) {
-      console.log("No room code available for subscriptions");
+    if (!gameStore.roomCode || subscriptionsActive.current) {
       return;
     }
 
     console.log("[HostView] Setting up subscriptions for room:", gameStore.roomCode);
+    subscriptionsActive.current = true;
 
     const roomChannel = supabase
       .channel(`room_${gameStore.roomCode}`)
@@ -113,10 +107,9 @@ export const HostView = () => {
           table: "game_rooms",
           filter: `code=eq.${gameStore.roomCode}`,
         },
-        async (payload: RealtimePostgresChangesPayload<any>) => {
+        async (payload) => {
           console.log("[HostView] game_rooms update:", payload);
           
-          // Only process game start once
           if (payload.new?.status === 'playing' && !isProcessingGameStart) {
             setIsProcessingGameStart(true);
             await debouncedFetchSubmissions();
@@ -135,8 +128,7 @@ export const HostView = () => {
           schema: "public",
           table: "game_prompts",
         },
-        (payload) => {
-          console.log("[HostView] game_prompts update:", payload);
+        () => {
           debouncedFetchSubmissions();
         }
       )
@@ -145,10 +137,12 @@ export const HostView = () => {
     debouncedFetchSubmissions();
 
     return () => {
+      console.log("[HostView] Cleaning up subscriptions");
       supabase.removeChannel(roomChannel);
       supabase.removeChannel(promptsChannel);
+      subscriptionsActive.current = false;
     };
-  }, [gameStore.roomCode, debouncedFetchSubmissions]);
+  }, [gameStore.roomCode, debouncedFetchSubmissions, isProcessingGameStart]);
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto p-6">
