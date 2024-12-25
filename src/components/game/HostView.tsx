@@ -6,9 +6,10 @@ import { LobbyStatus } from "./LobbyStatus";
 import { PlayerSubmissionsPanel } from "./PlayerSubmissionsPanel";
 import { PromptsPanel } from "./PromptsPanel";
 import { StartGameButton } from "./StartGameButton";
-import { PlayerSubmission, GamePrompt } from "@/types/game";
+import { PlayerSubmission, GamePrompt, GameRoom } from "@/types/game";
 import { toast } from "sonner";
 import { debounce } from "lodash";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export const HostView = () => {
   const gameStore = useGameStore();
@@ -107,7 +108,7 @@ export const HostView = () => {
           table: "game_rooms",
           filter: `code=eq.${gameStore.roomCode}`,
         },
-        async (payload) => {
+        async (payload: RealtimePostgresChangesPayload<GameRoom>) => {
           console.log("[HostView] game_rooms update:", payload);
           
           if (payload.new?.status === 'playing' && !isProcessingGameStart) {
