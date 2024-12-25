@@ -111,7 +111,8 @@ export const HostView = () => {
         async (payload: RealtimePostgresChangesPayload<GameRoom>) => {
           console.log("[HostView] game_rooms update:", payload);
           
-          if (payload.new?.status === 'playing' && !isProcessingGameStart) {
+          const newRoom = payload.new as GameRoom;
+          if (newRoom && newRoom.status === 'playing' && !isProcessingGameStart) {
             setIsProcessingGameStart(true);
             await debouncedFetchSubmissions();
             setIsProcessingGameStart(false);
