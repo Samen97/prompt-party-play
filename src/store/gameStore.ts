@@ -37,6 +37,7 @@ interface GameState {
   getRoundImage: (round: number) => string | undefined;
   resetUsedItems: () => void;
   setPrompts: (prompts: GamePrompt[]) => void;
+  setOptions: (options: string[]) => void;
   reset: () => void;
 }
 
@@ -151,6 +152,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   setPrompts: (prompts) => set({ prompts }),
+
+  setOptions: (options) => set({ options }),
 
   reset: () =>
     set({
