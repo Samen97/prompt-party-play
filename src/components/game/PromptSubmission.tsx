@@ -62,39 +62,33 @@ export const PromptSubmission = ({ onSubmitPrompts }: PromptSubmissionProps) => 
         throw new Error('Player not found');
       }
 
-      // First, insert all prompts with null image_urls
-      const promptInsertions = await Promise.all(prompts.map(async (prompt, index) => {
-        const { data, error } = await supabase
-          .from('game_prompts')
-          .insert([{
-            room_id: roomData.id,
-            player_id: playerData.id,
-            prompt: prompt,
-            round_number: index + 1,
-            image_url: null
-          }])
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      }));
-
-      // Then generate images and update the prompts
-      await Promise.all(promptInsertions.map(async (promptData) => {
+      // Insert prompts and generate images sequentially
+      for (let i = 0; i < prompts.length; i++) {
+        const prompt = prompts[i];
+        
         try {
-          const imageUrl = await generateImage(promptData.prompt);
+          // Generate image first
+          const imageUrl = await generateImage(prompt);
           
-          await supabase
+          // Then insert prompt with image URL
+          const { error: promptError } = await supabase
             .from('game_prompts')
-            .update({ image_url: imageUrl })
-            .eq('id', promptData.id);
+            .insert([{
+              room_id: roomData.id,
+              player_id: playerData.id,
+              prompt: prompt,
+              round_number: i + 1,
+              image_url: imageUrl
+            }]);
+
+          if (promptError) throw promptError;
 
         } catch (error) {
-          console.error('Error generating image:', error);
-          toast.error(`Failed to generate image for prompt: ${promptData.prompt}`);
+          console.error('Error processing prompt:', error);
+          toast.error(`Failed to process prompt: ${prompt}`);
+          throw error;
         }
-      }));
+      }
 
       await onSubmitPrompts(prompts);
       toast.success("Prompts submitted successfully!");
