@@ -27,12 +27,19 @@ export const useGameLogic = () => {
         throw new Error("Room not found");
       }
 
-      // Get all prompts that haven't been used in a round yet
+      // Get unused prompts for this room
       const { data: availablePrompts, error: promptError } = await supabase
         .from("game_prompts")
-        .select("id, prompt, image_url")
+        .select(`
+          id,
+          prompt,
+          image_url,
+          used_in_round
+        `)
         .eq("room_id", roomData.id)
         .is("used_in_round", null);
+
+      console.log("[useGameLogic] Available prompts:", availablePrompts);
 
       if (promptError || !availablePrompts || availablePrompts.length === 0) {
         console.error("[useGameLogic] Error fetching available prompts:", promptError);
@@ -40,10 +47,8 @@ export const useGameLogic = () => {
         return "results";
       }
 
-      // Randomly select one of the available prompts
-      const randomIndex = Math.floor(Math.random() * availablePrompts.length);
-      const selectedPrompt = availablePrompts[randomIndex];
-
+      // Select the first unused prompt
+      const selectedPrompt = availablePrompts[0];
       console.log("[useGameLogic] Selected prompt for round", round, selectedPrompt);
 
       // Mark this prompt as used in this round
