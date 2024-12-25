@@ -16,7 +16,7 @@ export const HostView = () => {
   const [playerSubmissions, setPlayerSubmissions] = useState<PlayerSubmission[]>([]);
   const [canStartGame, setCanStartGame] = useState(false);
   const [prompts, setPrompts] = useState<GamePrompt[]>([]);
-  const subscriptionsActive = useRef(false); // <--- For ensuring we don't re-subscribe
+  const subscriptionsActive = useRef(false);
 
   // ------------------------------------
   // fetchSubmissions (debounced)
@@ -70,8 +70,6 @@ export const HostView = () => {
     }));
 
     setPrompts(formattedPrompts);
-
-    // Also store them in our Zustand store if needed
     gameStore.setPrompts(formattedPrompts);
 
     const submissions = (players || []).map((player) => ({
@@ -84,7 +82,6 @@ export const HostView = () => {
     setPlayerSubmissions(submissions);
     setCanStartGame(submissions.every((p) => p.hasSubmitted));
 
-    // Recalculate total rounds if you want
     if (submissions.length > 0) {
       const totalRounds = submissions.length * 2;
       gameStore.setTotalRounds(totalRounds);
@@ -107,7 +104,6 @@ export const HostView = () => {
   useEffect(() => {
     if (!gameStore.roomCode) return;
     if (subscriptionsActive.current) {
-      // Already subscribed, do nothing
       return;
     }
     subscriptionsActive.current = true;
@@ -126,19 +122,13 @@ export const HostView = () => {
         },
         async (payload: RealtimePostgresChangesPayload<GameRoom>) => {
           console.log("[HostView] game_rooms update:", payload);
-          const newRoom = payload.new;
+          const newRoom = payload.new as GameRoom;
 
-          // Re-fetch so we see the updated status, round, etc.
-          // But do it debounced (prevents spam)
           debouncedFetchSubmissions();
 
-          // If the DB says status=playing,
           if (newRoom.status === "playing") {
-            // Check if we (the host) have not *already* done the next round
-            // Example check: if newRoom.current_round !== gameStore.currentRound
             if (newRoom.current_round !== gameStore.currentRound) {
               console.log("[HostView] status=playing, newRoom.current_round=", newRoom.current_round, " local currentRound=", gameStore.currentRound);
-              // Possibly call your `startNewRound` logic, or do nothing if the local store is already correct
             } else {
               console.log("[HostView] ignoring repeated status=playing for the same round:", newRoom.current_round);
             }
@@ -158,7 +148,6 @@ export const HostView = () => {
         },
         async (payload) => {
           console.log("[HostView] game_prompts update:", payload);
-          // Again, just re-fetch
           debouncedFetchSubmissions();
         }
       )
