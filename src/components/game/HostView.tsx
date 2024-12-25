@@ -17,10 +17,17 @@ export const HostView = () => {
   const [canStartGame, setCanStartGame] = useState(false);
   const [prompts, setPrompts] = useState<GamePrompt[]>([]);
   const subscriptionsActive = useRef(false);
+  const [stableOptions, setStableOptions] = useState<string[]>([]);
 
-  // ------------------------------------
-  // fetchSubmissions (debounced)
-  // ------------------------------------
+  // Debounced options update
+  const updateOptions = useCallback(
+    debounce((newOptions: string[]) => {
+      setStableOptions(newOptions);
+      gameStore.setOptions(newOptions);
+    }, 500),
+    []
+  );
+
   const fetchSubmissions = useCallback(async () => {
     if (!gameStore.roomCode) return;
 
@@ -33,6 +40,10 @@ export const HostView = () => {
     if (roomError || !roomData) {
       console.error("[HostView] Could not fetch room:", roomError);
       return;
+    }
+
+    if (roomData.current_options) {
+      updateOptions(roomData.current_options);
     }
 
     const { data: players, error: playersError } = await supabase
@@ -61,7 +72,6 @@ export const HostView = () => {
       console.error("[HostView] Error fetching prompts:", promptsError);
     }
 
-    // Transform prompts data
     const formattedPrompts: GamePrompt[] = (promptsData || []).map((p) => ({
       id: p.id,
       prompt: p.prompt,
@@ -98,9 +108,6 @@ export const HostView = () => {
     fetchSubmissions,
   ]);
 
-  // ------------------------------------
-  // useEffect to set up subscriptions
-  // ------------------------------------
   useEffect(() => {
     if (!gameStore.roomCode) return;
     if (subscriptionsActive.current) {
@@ -123,6 +130,10 @@ export const HostView = () => {
         async (payload: RealtimePostgresChangesPayload<GameRoom>) => {
           console.log("[HostView] game_rooms update:", payload);
           const newRoom = payload.new as GameRoom;
+
+          if (newRoom.current_options) {
+            updateOptions(newRoom.current_options);
+          }
 
           debouncedFetchSubmissions();
 
@@ -153,7 +164,6 @@ export const HostView = () => {
       )
       .subscribe();
 
-    // Fetch once initially
     debouncedFetchSubmissions();
 
     return () => {
